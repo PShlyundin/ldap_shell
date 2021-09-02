@@ -48,7 +48,7 @@ exit - Terminates this session.
 
 ## Autors
 * [saber-nyan](https://saber-nyan.com) (main dev)
-* [Rciool](https://t.me/riocool)
+* [Riocool](https://t.me/riocool)
 
 ## Credits
 * [Impacket](https://github.com/SecureAuthCorp/impacket)
