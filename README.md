@@ -11,7 +11,7 @@ cd ldap_shell
 python3 setup.py install
 ```
 
-## Use
+## Usage
 ### Connection options
 ```
 ldap_shell domain.local/user:password
