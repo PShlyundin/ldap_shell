@@ -7,6 +7,7 @@ These tools are only compatible with Python 3.5+. Clone the repository from GitH
 
 ```bash
 git clone https://github.com/z-Riocool/ldap_shell.git
+cd ldap_shell
 python3 setup.py install
 ```
 
