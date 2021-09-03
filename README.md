@@ -46,7 +46,10 @@ exit - Terminates this session.
 * shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
 * get_all_laps - Get all LAPS passwords
 
-## Autors
+## License
+Apache
+
+## Authors
 * [saber-nyan](https://saber-nyan.com) (main dev)
 * [Riocool](https://t.me/riocool)
 
