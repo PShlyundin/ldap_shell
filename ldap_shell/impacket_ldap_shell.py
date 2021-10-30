@@ -205,19 +205,6 @@ class LdapShell(cmd.Cmd):
         computer_dn = f"CN={computer_hostname},CN=Computers,{self.domain_dumper.root}"
         log.info('Del Computer DN: %s', computer_dn)
 
-        spns = [
-            f'HOST/{computer_hostname}',
-            f'HOST/{computer_hostname}.{domain}',
-            f'RestrictedKrbHost/{computer_hostname}',
-            f'RestrictedKrbHost/{computer_hostname}.{domain}',
-        ]
-        ucd = {
-            'dnsHostName': f'{computer_hostname}.{domain}',
-            'userAccountControl': 4096,
-            'servicePrincipalName': spns,
-            'sAMAccountName': computer_name
-        }
-
         res = self.client.delete(computer_dn)
 
         if not res:
