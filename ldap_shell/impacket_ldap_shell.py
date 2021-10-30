@@ -180,6 +180,54 @@ class LdapShell(cmd.Cmd):
         else:
             log.info('Adding new computer with username "%s" and password "%s" result: OK', computer_name, password)
 
+    def do_del_computer(self, line):
+        args = shlex.split(line)
+
+        if not self.client.server.ssl:
+            log.error('Error adding a new computer with LDAP requires LDAPS.')
+
+        if len(args) != 1 and len(args) != 2:
+            raise Exception('Expected a computer name and an optional password argument.')
+
+        computer_name = args[0]
+        if not computer_name.endswith('$'):
+            computer_name += '$'
+
+        log.info('Attempting to del a computer with the name: %s', computer_name)
+
+        domain_dn = self.domain_dumper.root
+        domain = re.sub(',DC=', '.', domain_dn[domain_dn.find('DC='):], flags=re.I)[3:]
+
+        log.info('Inferred Domain DN: %s', domain_dn)
+        log.info('Inferred Domain Name: %s', domain)
+
+        computer_hostname = computer_name[:-1]  # Remove $ sign
+        computer_dn = f"CN={computer_hostname},CN=Computers,{self.domain_dumper.root}"
+        log.info('Del Computer DN: %s', computer_dn)
+
+        spns = [
+            f'HOST/{computer_hostname}',
+            f'HOST/{computer_hostname}.{domain}',
+            f'RestrictedKrbHost/{computer_hostname}',
+            f'RestrictedKrbHost/{computer_hostname}.{domain}',
+        ]
+        ucd = {
+            'dnsHostName': f'{computer_hostname}.{domain}',
+            'userAccountControl': 4096,
+            'servicePrincipalName': spns,
+            'sAMAccountName': computer_name
+        }
+
+        res = self.client.delete(computer_dn)
+
+        if not res:
+            if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM:
+                log.error('Failed to del a computer. The server denied the operation.')
+            else:
+                log.error('Failed to del a computer: %s', self.client.result)
+        else:
+            log.info('Deleting computer with name "%s" result: OK', computer_name)
+
     def do_add_user(self, line):
         args = shlex.split(line)
         if len(args) == 0:
