@@ -41,10 +41,13 @@ write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given u
 exit - Terminates this session.
 ```
 ## TODO
-* del_computer - Delete select computer
-* del_user -  Delete select user
-* shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
-* get_all_laps - Get all LAPS passwords
+- [x] del_computer - Delete computer
+- [ ] del_user - Delete user
+- [ ] set_dcsync - If you have write access to the domain object, assign the DS-Replication right to the selected user
+- [ ] del_dcsync - Del DS-Replication right to the selected user
+- [ ] del_user -  Delete select user
+- [ ] shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
+- [ ] get_all_laps - Get all LAPS passwords
 
 ## License
 Apache
