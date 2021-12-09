@@ -31,6 +31,8 @@ disable_account user - Disable the user's account.
 enable_account user - Enable the user's account.
 dump - Dumps the domain.
 search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
+set_dcsync user - If you have write access to the domain object, assign the DS-Replication right to the selected user.
+del_dcsync user - Delete DS-Replication right to the selected user.
 get_user_groups user - Retrieves all groups this user is a member of.
 get_group_users group - Retrieves all members of a group.
 get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
@@ -43,8 +45,8 @@ exit - Terminates this session.
 ## TODO
 - [x] del_computer - Delete computer
 - [ ] del_user - Delete user
-- [ ] set_dcsync - If you have write access to the domain object, assign the DS-Replication right to the selected user
-- [ ] del_dcsync - Del DS-Replication right to the selected user
+- [x] set_dcsync - If you have write access to the domain object, assign the DS-Replication right to the selected user
+- [x] del_dcsync - Del DS-Replication right to the selected user
 - [ ] del_user -  Delete select user
 - [ ] shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
 - [ ] get_all_laps - Get all LAPS passwords
