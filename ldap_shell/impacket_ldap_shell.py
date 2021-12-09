@@ -643,6 +643,70 @@ class LdapShell(cmd.Cmd):
         else:
             self.process_error_response()
 
+    def do_set_allextendedrights(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 3:
+            raise Exception(
+                f'Expecting target and grantee names for DACL modified. Received {len(args)} arguments instead.'
+            )
+
+        controls = security_descriptor_control(sdflags=0x04)
+
+        target_name = args[0]
+        grantee_name = args[1]
+        flag_str = ''
+        if "true" == flag_str.lower():
+            flag = True
+        elif flag_str.lower() == 'false':
+            flag = False
+        else:
+            raise Exception('The specified flag must be either true or false')
+
+        success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(target_name)})',
+                                     attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
+        if len(self.client.entries) == 0:
+            #Try modify root
+            log.info('Not found user, try modify root')
+            success = self.client.search(self.domain_dumper.root, '(objectClass=*)', attributes=['objectSid', 'nTSecurityDescriptor'],
+                               controls=controls)
+        if not success:
+            raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
+
+        target = self.client.entries[0]
+        target_sid = target['objectSid'].value
+        log.info('Found Target DN: %s', target.entry_dn)
+        log.info('Target SID: %s', target_sid)
+
+        success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(grantee_name)})',
+                                     attributes=['objectSid'])
+        if not success or len(self.client.entries) != 1:
+            raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
+
+        grantee = self.client.entries[0]
+        grantee_sid = grantee['objectSid'].value
+        log.info('Found Grantee DN: %s', grantee.entry_dn)
+        log.info('Grantee SID: %s', grantee_sid)
+
+        try:
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target['nTSecurityDescriptor'].raw_values[0])
+        except IndexError:
+            sd = self.create_empty_sd()
+
+        for e in sd['Dacl'].aces:
+            if e['Ace']['Sid'].formatCanonical() == grantee_sid:
+                if flag:
+                    e['Ace']['Mask'].setPriv(0x100) #add AllExtendedRights mask
+                else:
+                    e['Ace']['Mask'].removePriv(0x100) #del AllExtendedRights mask
+        self.client.modify(target.entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, [sd.getData()]]},
+                           controls=controls)
+
+        if self.client.result['result'] == 0:
+            log.info('DACL modified successfully! %s now has AllExtendedRights of %s', grantee_name, target_name)
+        else:
+            self.process_error_response()
+
     def do_set_rbcd(self, line):
         args = shlex.split(line)
 
