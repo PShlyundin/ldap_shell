@@ -643,25 +643,41 @@ class LdapShell(cmd.Cmd):
         else:
             self.process_error_response()
 
-    def do_set_allextendedrights(self, line):
+    def do_ace_edit(self, line):
+        masks = {
+            "GENERIC_READ":0x80000000,
+            "GENERIC_WRITE":0x40000000,
+            "GENERIC_EXECUTE":0x20000000,
+            "GENERIC_ALL":0x10000000,
+            "MAXIMUM_ALLOWED":0x02000000,
+            "ACCESS_SYSTEM_SECURITY":0x01000000,
+            "SYNCHRONIZE":0x00100000,
+            "WRITE_OWNER":0x00080000,
+            "WRITE_DACL":0x00040000,
+            "READ_CONTROL":0x00020000,
+            "DELETE":0x00010000}
+
         args = shlex.split(line)
-
-        if len(args) != 3:
+        if len(args) != 4:
             raise Exception(
-                f'Expecting target and grantee names for DACL modified. Received {len(args)} arguments instead.'
+                f'Expecting target, grantee, true/false and mask names for ACE modified. Received {len(args)} arguments instead.'
             )
-
         controls = security_descriptor_control(sdflags=0x04)
 
         target_name = args[0]
         grantee_name = args[1]
-        flag_str = ''
-        if "true" == flag_str.lower():
+        flag_str = args[2]
+        if flag_str.lower() == "true":
             flag = True
         elif flag_str.lower() == 'false':
             flag = False
         else:
             raise Exception('The specified flag must be either true or false')
+        mask = args[3]
+        if mask in masks:
+            mask=masks[mask]
+
+
 
         success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(target_name)})',
                                      attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
@@ -706,6 +722,24 @@ class LdapShell(cmd.Cmd):
             log.info('DACL modified successfully! %s now has AllExtendedRights of %s', grantee_name, target_name)
         else:
             self.process_error_response()
+
+    def do_get_maq(self, user):
+        #Get global ms-DS-MachineAccountQuota
+        self.client.search(self.domain_dumper.root, '(objectClass=*)', attributes=['ms-DS-MachineAccountQuota'],
+                controls=security_descriptor_control(sdflags=0x04))
+        maq = self.client.entries[0].entry_attributes_as_dict['ms-DS-MachineAccountQuota'][0]
+        if maq < 1:
+            raise Exception(f"Global domain policy ms-DS-MachineAccountQuota={maq}")
+        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(user)})',
+                           attributes=['objectSid'])
+        if len(self.client.entries) != 1:
+            raise Exception(f'Expected only one search result, got {len(self.client.entries)} results')
+
+        user_sid = self.client.entries[0]['objectSid'].value
+
+        self.client.search(self.domain_dumper.root, f'(&(objectClass=computer)(mS-DS-CreatorSID={user_sid}))', attributes=['ms-ds-creatorsid'])
+        user_machins = len(self.client.entries)
+        log.info(f'User {user} have MachineAccountQuota={maq-user_machins}')
 
     def do_set_rbcd(self, line):
         args = shlex.split(line)
@@ -805,6 +839,7 @@ grant_control target grantee - Grant full control of a given target object (sAMA
 set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
 set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
 write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
+get_maq user - Get ms-DS-MachineAccountQuota for current user.
 exit - Terminates this session.''')
 
     def do_EOF(self, line):

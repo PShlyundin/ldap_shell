@@ -133,7 +133,7 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
                             aes_key: Optional[str], kdc_host: Optional[str]) -> ldap3.Connection:
     log.debug('Performing LDAP connection...')
     tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
-    server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False, tls=None)
+    server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=True, tls=tls)
     user_domain = fr'{domain}\{username}'
     try:
         connection = get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash, password, server,
