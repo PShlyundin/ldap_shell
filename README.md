@@ -40,6 +40,7 @@ grant_control target grantee - Grant full control of a given target object (sAMA
 set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
 set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
 write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
+get_maq user - Get ms-DS-MachineAccountQuota for current user.
 exit - Terminates this session.
 ```
 ## TODO
@@ -47,9 +48,10 @@ exit - Terminates this session.
 - [ ] del_user - Delete user
 - [x] set_dcsync - If you have write access to the domain object, assign the DS-Replication right to the selected user
 - [x] del_dcsync - Del DS-Replication right to the selected user
-- [ ] del_user -  Delete select user
 - [ ] shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
 - [ ] get_all_laps - Get all LAPS passwords
+- [ ] set_owner - Abuse WriteOwner privilege
+- [ ] ace_edit - Set GenericAll, WriteDacl, WriteProperties or set MASK of privilege
 
 ## License
 Apache
