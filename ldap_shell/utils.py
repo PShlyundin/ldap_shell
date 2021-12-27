@@ -18,8 +18,8 @@ def init_logging(debug: bool, logs_dir_path: Optional[str] = None) -> None:
         'disable_existing_loggers': False,
         'formatters': {
             'console_basic': {
-                'format': '%(asctime)s <%(filename)s:%(lineno)d> [%(levelname)s] '
-                          '%(name)s: %(message)s',
+                'format': '[%(levelname)s] '
+                          '%(message)s',
                 'datefmt': '%H:%M:%S',
             },
             'file_text': {

