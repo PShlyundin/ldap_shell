@@ -44,6 +44,9 @@ def parse_args() -> argparse.Namespace:
         '-dc-host', action='store', metavar='hostname',
         help='hostname of the domain controller'
     )
+    parser.add_argument(
+        '-use-ldaps', action='store_true', help='Use LDAPS for create user/computer and change passwords'
+    )
     parser.add_argument('-no-pass', action='store_true',
                         help='don\'t ask for password (useful for -k)')
     parser.add_argument(
@@ -85,7 +88,7 @@ class StdioShell:
 
 def start_shell(options: argparse.Namespace):
     domain, username, password = parse_credentials(options.target)
-
+    use_ldaps = False
     if len(domain) == 0:
         log.critical('Domain name should be specified')
         sys.exit(1)
@@ -100,6 +103,8 @@ def start_shell(options: argparse.Namespace):
     if options.k and options.dc_host is None:
         log.critical('Kerberos auth requires DNS name of the target DC. Use -dc-host.')
         sys.exit(1)
+    if options.use_ldaps:
+        use_ldaps = True
 
     lmhash = None
     nthash = None
@@ -110,7 +115,7 @@ def start_shell(options: argparse.Namespace):
 
     log.debug('Starting shell for %s w/ user %s', target, username)
     client = perform_ldap_connection(
-        target, domain, username, password, options.k, options.hashes,
+        target, domain, username, password, options.k, use_ldaps, options.hashes,
         lmhash, nthash, options.aesKey, options.dc_host
     )
     log.debug('Connection established')
@@ -128,24 +133,32 @@ def start_shell(options: argparse.Namespace):
 
 
 def perform_ldap_connection(target: str, domain: str, username: str, password: str,
-                            do_kerberos: bool, hashes: Optional[str],
+                            do_kerberos: bool, ldaps: Optional[bool], hashes: Optional[str],
                             lmhash: Optional[str], nthash: Optional[str],
                             aes_key: Optional[str], kdc_host: Optional[str]) -> ldap3.Connection:
     log.debug('Performing LDAP connection...')
-    tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
-    server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False, tls=tls)
-    user_domain = fr'{domain}\{username}'
-    try:
+    if ldaps:
+        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
+        server = ldap3.Server(target, get_info=ldap3.ALL, port=636, use_ssl=True, tls=tls)
+        user_domain = fr'{domain}\{username}'
+
+        try:
+            connection = get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash, password, server,
+                                         user_domain, username)
+        except LDAPSocketOpenError:
+            log.debug('Failed to connect via TLSv1.2, trying TLSv1')
+            log.debug('Details:', exc_info=True)
+            tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1)
+            server = ldap3.Server(target, get_info=ldap3.ALL, port=636, use_ssl=True, tls=tls)
+            connection = get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash, password, server,
+                                         user_domain, username)
+        return connection
+    else:
+        server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False)
+        user_domain = fr'{domain}\{username}'
         connection = get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash, password, server,
-                                     user_domain, username)
-    except LDAPSocketOpenError:
-        log.debug('Failed to connect via TLSv1.2, trying TLSv1')
-        log.debug('Details:', exc_info=True)
-        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1)
-        server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=True, tls=tls)
-        connection = get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash, password, server,
-                                     user_domain, username)
-    return connection
+                                         user_domain, username)
+        return connection
 
 
 def get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash,
