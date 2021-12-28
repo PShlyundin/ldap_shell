@@ -50,8 +50,8 @@ exit - Terminates this session.
 - [x] del_dcsync - Del DS-Replication right to the selected user
 - [ ] shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
 - [ ] get_all_laps - Get all LAPS passwords
-- [ ] set_owner - Abuse WriteOwner privilege
-- [ ] ace_edit - Set GenericAll, WriteDacl, WriteProperties or set MASK of privilege
+- [x] set_owner - Abuse WriteOwner privilege
+- [x] dacl_modify - Set GenericAll, WriteDacl, WriteProperties or set MASK of privilege
 
 ## License
 Apache
