@@ -61,6 +61,12 @@ class LdapShell(cmd.Cmd):
         return ret_val
 
     @staticmethod
+    def bin_to_string(uuid):
+        uuid1, uuid2, uuid3 = unpack('<LHH', uuid[:8])
+        uuid4, uuid5, uuid6 = unpack('>HHL', uuid[8:16])
+        return '%08X-%04X-%04X-%04X-%04X%08X' % (uuid1, uuid2, uuid3, uuid4, uuid5, uuid6)
+    
+    @staticmethod
     def string_to_bin(uuid):
         # If a UUID in the 00000000-0000-0000-0000-000000000000 format, parse it as Variant 2 UUID
         # The first three components of the UUID are little-endian, and the last two are big-endian
@@ -170,7 +176,7 @@ class LdapShell(cmd.Cmd):
         args = shlex.split(line)
 
         if not self.client.server.ssl:
-            log.error('Error adding a new computer with LDAP requires LDAPS.')
+            return log.error('Error adding a new computer with LDAP requires LDAPS. Try -use-ldaps flag')
 
         if len(args) != 1 and len(args) != 2:
             raise Exception('Expected a computer name and an optional password argument.')
@@ -257,6 +263,8 @@ class LdapShell(cmd.Cmd):
             log.info('Deleting computer with name "%s" result: OK', computer_name)
 
     def do_add_user(self, line):
+        if not self.client.server.ssl:
+            return log.error('Error adding a new computer with LDAP requires LDAPS. Try -use-ldaps flag')
         args = shlex.split(line)
         if len(args) == 0:
             raise Exception('A username is required.')
@@ -322,6 +330,8 @@ class LdapShell(cmd.Cmd):
             raise Exception(f'Failed to add user to group "{group_name}": {self.client.result["description"]}')
 
     def do_change_password(self, line):
+        if not self.client.server.ssl:
+            return log.error('Error change password with LDAP requires LDAPS. Try -use-ldaps flag')
         args = shlex.split(line)
 
         if len(args) != 1 and len(args) != 2:
@@ -647,16 +657,17 @@ class LdapShell(cmd.Cmd):
     def do_set_owner(self, line):
         args = shlex.split(line)
 
-        if len(args) != 1 and len(args) != 2:
+        if len(args) == 1:
+            grantee_name = self.client.user.split('\\')[1]
+        elif len(args) == 2:
+            grantee_name = args[1]
+        else:
             raise Exception(
                 f'Expecting target and Owner name for Owner modified. Received {len(args)} arguments instead.'
             )
 
         controls = security_descriptor_control(sdflags=0x04)
-
         target_name = args[0]
-        grantee_name = args[1]
-
         success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(target_name)})',
                                      attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
 
@@ -700,14 +711,18 @@ class LdapShell(cmd.Cmd):
 
     def do_dacl_modify(self, line):
         masks = {
-            "fullcontrol":0xF01FF,                     #Include GENERIC_READ, GENERIC_WRITE, GENERIC_EXECUTE, GENERIC_ALL
-            "genericwrite":0x40000000,                 #GENERIC_WRITE
-            "allextendedrights":0x00000100,            #ADS_RIGHT_DS_CONTROL_ACCESS
+            "genericwrite":0x20034,                    #GENERIC_WRITE and RESET_PASSWORD
+            "allextendedrights":0x20134,               #ADS_RIGHT_DS_CONTROL_ACCESS
             "genericall":0xF01FF,                      #GENERIC_ALL(0x10000000)
-            "writeowner":0x00080000,                   #WRITE_OWNER
-            "writedacl":0x00040000,                    #WRITE_DACL
-            "writeproperty":0x00000020,                #ADS_RIGHT_DS_WRITE_PROP
-            "delete":0x00010000}                       #DELETE
+            "writeowner":0xa0034,                      #WRITE_OWNER
+            "writedacl":0x60034,                       #WRITE_DACL
+            "writeproperty":0x20034,                   #ADS_RIGHT_DS_WRITE_PROP
+            "delete":0x30034}                          #DELETE
+
+        objects = {
+            'writetorbcd':'3F78C3E5-F79A-46BD-A0B8-9D18116DDC79',       #ms-DS-AllowedToActOnBehalfOfOtherIdentity
+            'writetokeycredlink':'5B47D60F-6090-40B2-9F37-2A4DE88F3063' #ms-Ds-KeyCredentialLink
+        }
 
         args = shlex.split(line)
         if len(args) != 4:
@@ -916,7 +931,7 @@ get_user_groups user - Retrieves all groups this user is a member of.
 get_group_users group - Retrieves all members of a group.
 get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
 grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
-set_owner user - Abuse WriteOwner privilege.
+set_owner target grantee - Abuse WriteOwner privilege.
 dacl_modify - Modify ACE (add/del). Usage: target, grantee, true/false and mask name or ObjectType for ACE modified.
 set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
 set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
