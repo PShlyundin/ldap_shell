@@ -12,13 +12,14 @@ setup(
     description='LDAP shell utility from Impacket',
     long_description=readme,
     author='saber-nyan and Riocool',
-    author_email='saber-nyan@ya.ru',
+    author_email='z-Riocool@gmail.com',
     url='https://github.com/z-Riocool/ldap_shell',
     install_requires=[
         'ldap3==2.9.1',
         'ldapdomaindump==0.9.3',
         'pyasn1==0.4.8',
         'pycryptodomex==3.10.1',
+        'dsinternals==1.2.4'
     ],
     packages=find_packages(),
     include_package_data=True,

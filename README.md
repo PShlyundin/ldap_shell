@@ -36,7 +36,9 @@ del_dcsync user - Delete DS-Replication right to the selected user.
 get_user_groups user - Retrieves all groups this user is a member of.
 get_group_users group - Retrieves all members of a group.
 get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
-grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
+set_genericall target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
+set_owner target grantee - Abuse WriteOwner privilege.
+dacl_modify - Modify ACE (add/del). Usage: target, grantee, add/del and mask name or ObjectType for ACE modified.
 set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
 set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
 write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
