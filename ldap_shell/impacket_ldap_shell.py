@@ -16,6 +16,7 @@ from ldap3.utils.conv import escape_filter_chars
 from ldap3.protocol.formatters.formatters import format_sid
 
 from ldap_shell import ldaptypes
+import pdb
 
 log = logging.getLogger('ldap-shell.shell')
 
@@ -356,7 +357,16 @@ class LdapShell(cmd.Cmd):
         else:
             self.process_error_response()
 
-    def do_clear_rbcd(self, computer_name):
+    def do_clear_rbcd(self, line):
+        args = shlex.split(line)
+        
+        if len(args) != 1 and len(args) != 2:
+            raise Exception(
+                f'Expecting target and grantee names for RBCD removal. Received {len(args)} arguments instead.')
+
+        computer_name = args[0]
+        grantee_name = args[1]
+
         success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(computer_name)})',
                                      attributes=['objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'])
         if not success or len(self.client.entries) != 1:
@@ -366,15 +376,40 @@ class LdapShell(cmd.Cmd):
         target_sid = target['objectsid'].value
         log.info('Found Target DN: %s', target.entry_dn)
         log.info('Target SID: %s', target_sid)
+        
+        success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(grantee_name)})',
+                                     attributes=['objectSid'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception(f'Expected only one search result, got {len(self.client.entries)} results')
 
-        sd = self.create_empty_sd()
+        grantee = self.client.entries[0]
+        grantee_sid = grantee['objectSid'].value
+        log.info('Found Grantee DN: %s', grantee.entry_dn)
+        log.info('Grantee SID: %s', grantee_sid)
+        
+        sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target['msDS-AllowedToActOnBehalfOfOtherIdentity'].raw_values[0])
 
+        log.info('Removing: \t%s', grantee_sid)
+        
+        upd_sd = sd['Dacl'].aces
+        for ace in sd['Dacl'].aces:
+            if ace['Ace']['Sid'].formatCanonical() == grantee_sid:
+                upd_sd.remove(ace)
+
+        sd['Dacl'].aces = upd_sd
+        del upd_sd
+        
         self.client.modify(target.entry_dn,
                            {'msDS-AllowedToActOnBehalfOfOtherIdentity': [ldap3.MODIFY_REPLACE, [sd.getData()]]})
-        if self.client.result['result'] == 0:
-            log.info('Delegation rights cleared successfully!')
-        else:
-            self.process_error_response()
+        
+        
+        success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(computer_name)})',
+                                     attributes=['objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'])
+        target = self.client.entries[0]
+        sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target['msDS-AllowedToActOnBehalfOfOtherIdentity'].raw_values[0])
+        log.info('Currently allowed sids:')
+        for ace in sd['Dacl'].aces:
+            log.info('\t%s', ace['Ace']['Sid'].formatCanonical())
 
     def do_dump(self, line):
         log.info('Dumping domain info...')
@@ -858,7 +893,7 @@ class LdapShell(cmd.Cmd):
 
         if len(args) != 1 and len(args) != 2:
             raise Exception(
-                f'Expecting target and grantee names for RECD attack. Received {len(args)} arguments instead.')
+                f'Expecting target and grantee names for RBCD attack. Received {len(args)} arguments instead.')
 
         target_name = args[0]
         grantee_name = args[1]
@@ -937,7 +972,7 @@ add_computer computer [password] - Adds a new computer to the domain with the sp
 add_user new_user [parent] - Creates a new user.
 add_user_to_group user group - Adds a user to a group.
 change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
-clear_rbcd target - Clear the resource based constrained delegation configuration information.
+clear_rbcd target grantee - Clear the resource based constrained delegation configuration information.
 disable_account user - Disable the user's account.
 enable_account user - Enable the user's account.
 dump - Dumps the domain.
