@@ -16,7 +16,6 @@ from ldap3.utils.conv import escape_filter_chars
 from ldap3.protocol.formatters.formatters import format_sid
 
 from ldap_shell import ldaptypes
-import pdb
 
 log = logging.getLogger('ldap-shell.shell')
 
@@ -398,7 +397,6 @@ class LdapShell(cmd.Cmd):
 
         sd['Dacl'].aces = upd_sd
         del upd_sd
-        
         self.client.modify(target.entry_dn,
                            {'msDS-AllowedToActOnBehalfOfOtherIdentity': [ldap3.MODIFY_REPLACE, [sd.getData()]]})
         
