@@ -330,6 +330,27 @@ class LdapShell(cmd.Cmd):
         else:
             raise Exception(f'Failed to add user to group "{group_name}": {self.client.result["description"]}')
 
+    def do_del_user_from_group(self, line):
+        user_name, group_name = shlex.split(line)
+
+        user_dn = self.get_dn(user_name)
+        if not user_dn:
+            raise Exception(f'User not found in LDAP: {user_name}')
+
+        group_dn = self.get_dn(group_name)
+        if not group_dn:
+            raise Exception(f'Group not found in LDAP: {group_name}')
+
+        user_name = user_dn.split(',')[0][3:]
+        group_name = group_dn.split(',')[0][3:]
+
+        res = self.client.modify(group_dn, {'member': [(ldap3.MODIFY_DELETE, [user_dn])]})
+        if res:
+            log.info('Delete user "%s" from group "%s" result: OK', user_name, group_name)
+        else:
+            raise Exception(f'Failed to delete user from group "{group_name}": {self.client.result["description"]}')
+
+
     def do_change_password(self, line):
         if not self.client.server.ssl:
             return log.error('Error change password with LDAP requires LDAPS. Try -use-ldaps flag')
@@ -490,22 +511,37 @@ class LdapShell(cmd.Cmd):
         self.search(f'(memberof:{LdapShell.LDAP_MATCHING_RULE_IN_CHAIN}:={escape_filter_chars(group_dn)})',
                     'sAMAccountName', 'name')
 
-    def do_get_laps_password(self, computer_name):
+    def do_get_laps_password(self, line):
+        args = shlex.split(line)
 
-        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(computer_name)})',
-                           attributes=['ms-MCS-AdmPwd'])
-        if len(self.client.entries) != 1:
-            raise Exception(f'Error expected only one search result got {len(self.client.entries)} results')
-
-        computer = self.client.entries[0]
-        log.info('Found Computer DN: %s', computer.entry_dn)
-
-        password = computer['ms-MCS-AdmPwd'].value
-
-        if password is not None:
-            log.info('LAPS Password: %s', password)
+        if len(args) != 0 and len(args) != 1:
+            raise Exception(
+                f'Expecting target. Received {len(args)} arguments instead.'
+            )
+        if len(args) == 0:
+            self.client.search(self.domain_dumper.root, f'(ms-MCS-AdmPwd=*)',
+                               attributes=['ms-MCS-AdmPwd','sAMAccountName'])
+            if len(self.client.entries) == 0:
+                log.error(f'This user can\'t read LAPS')
+                return
+            else:
+                for e in self.client.entries:
+                    print (e['sAMAccountName'], e['ms-MCS-AdmPwd'])
         else:
-            log.info('Unable to Read LAPS Password for Computer')
+            self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(computer_name)})',
+                               attributes=['ms-MCS-AdmPwd'])
+            if len(self.client.entries) != 1:
+                raise Exception(f'Error expected only one search result got {len(self.client.entries)} results')
+
+            computer = self.client.entries[0]
+            log.info('Found Computer DN: %s', computer.entry_dn)
+
+            password = computer['ms-MCS-AdmPwd'].value
+
+            if password is not None:
+                log.info('LAPS Password: %s', password)
+            else:
+                log.error('Unable to Read LAPS Password for Computer')
 
     def do_set_genericall(self, line):
         args = shlex.split(line)
@@ -841,9 +877,10 @@ class LdapShell(cmd.Cmd):
                 controls=security_descriptor_control(sdflags=0x04))
         maq = self.client.entries[0].entry_attributes_as_dict['ms-DS-MachineAccountQuota'][0]
         if maq < 1:
-            raise Exception(f"Global domain policy ms-DS-MachineAccountQuota={maq}")
-        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(user)})',
-                           attributes=['objectSid'])
+            log.error(f"Global domain policy ms-DS-MachineAccountQuota={maq}")
+            return
+            self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(user)})',
+                               attributes=['objectSid'])
         if len(self.client.entries) != 1:
             raise Exception(f'Expected only one search result, got {len(self.client.entries)} results')
 
@@ -936,6 +973,7 @@ class LdapShell(cmd.Cmd):
 add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
 add_user new_user [parent] - Creates a new user.
 add_user_to_group user group - Adds a user to a group.
+del_user_from_group user group - Delete a user from a group.
 change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
 clear_rbcd target - Clear the resource based constrained delegation configuration information.
 disable_account user - Disable the user's account.
