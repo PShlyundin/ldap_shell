@@ -22,28 +22,33 @@ ldap_shell -k -no-pass domain.local/user
 ```
 ### Functionality
 ```
-add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
-add_user new_user [parent] - Creates a new user.
-add_user_to_group user group - Adds a user to a group.
-del_user_from_group user group - Delete a user from a group.
-change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
-clear_rbcd target - Clear the resource based constrained delegation configuration information.
-disable_account user - Disable the user's account.
-enable_account user - Enable the user's account.
-dump - Dumps the domain.
-search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
-set_dcsync user - If you have write access to the domain object, assign the DS-Replication right to the selected user.
-del_dcsync user - Delete DS-Replication right to the selected user.
-get_user_groups user - Retrieves all groups this user is a member of.
-get_group_users group - Retrieves all members of a group.
-get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
-set_genericall target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
-set_owner target grantee - Abuse WriteOwner privilege.
-dacl_modify - Modify ACE (add/del). Usage: target, grantee, add/del and mask name or ObjectType for ACE modified.
-set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
-set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
-write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
-get_maq user - Get ms-DS-MachineAccountQuota for current user.
+Get Info
+    dump - Dumps the domain.
+    search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
+    get_user_groups user - Retrieves all groups this user is a member of.
+    get_group_users group - Retrieves all members of a group.
+    get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
+    get_maq user - Get ms-DS-MachineAccountQuota for current user.
+Abuse ACL
+    add_user_to_group user group - Adds a user to a group.
+    del_user_from_group user group - Delete a user from a group.
+    change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
+    set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
+    clear_rbcd target - Clear the resource based constrained delegation configuration information.
+    set_dcsync user - If you have write access to the domain object, assign the DS-Replication right to the selected user.
+    del_dcsync user - Delete DS-Replication right to the selected user.
+    set_genericall target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
+    set_owner target grantee - Abuse WriteOwner privilege.
+    dacl_modify - Modify ACE (add/del). Usage: target, grantee, add/del and mask name or ObjectType for ACE modified.
+    set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
+    get_ntlm user - Shadow Credentials method to abuse GenericAll, GenericWrite and AllExtendedRights privilege
+    write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
+Misc
+    add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
+    del_computer computer - Remove a new computer from the domain.
+    add_user new_user [parent] - Creates a new user.
+    disable_account user - Disable the user's account.
+    enable_account user - Enable the user's account.
 exit - Terminates this session.
 ```
 ## TODO
