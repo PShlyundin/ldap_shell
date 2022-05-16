@@ -1,5 +1,5 @@
 # LDAP shell
-This repository contains a small tool inherited from ldap_shell (https://github.com/SecureAuthCorp/impacket/blob/master/impacket/examples/ldap_shell.py).
+This project is a fork of ldap_shell (https://github.com/SecureAuthCorp/impacket/blob/master/impacket/examples/ldap_shell.py).
 
 
 ## Installation
@@ -25,7 +25,7 @@ ldap_shell -k -no-pass domain.local/user
 Get Info
     dump - Dumps the domain.
     search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
-    get_user_groups user - Retrieves all groups this user is a member of.
+    get_user_groups user - Retrieves all groups for a specified user.
     get_group_users group - Retrieves all members of a group.
     get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
     get_maq user - Get ms-DS-MachineAccountQuota for current user.
@@ -42,10 +42,10 @@ Abuse ACL
     dacl_modify - Modify ACE (add/del). Usage: target, grantee, add/del and mask name or ObjectType for ACE modified.
     set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
     get_ntlm user - Shadow Credentials method to abuse GenericAll, GenericWrite and AllExtendedRights privilege
-    write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
+    write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID attribute format is {value}.
 Misc
     add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
-    del_computer computer - Remove a new computer from the domain.
+    del_computer computer - Remove a computer from the domain.
     add_user new_user [parent] - Creates a new user.
     disable_account user - Disable the user's account.
     enable_account user - Enable the user's account.
@@ -55,7 +55,7 @@ exit - Terminates this session.
 - [x] del_computer - Delete computer
 - [ ] del_user - Delete user
 - [x] set_dcsync - If you have write access to the domain object, assign the DS-Replication right to the selected user
-- [x] del_dcsync - Del DS-Replication right to the selected user
+- [x] del_dcsync - Delete DS-Replication right to the selected user
 - [ ] shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
 - [ ] get_all_laps - Get all LAPS passwords
 - [x] set_owner - Abuse WriteOwner privilege
