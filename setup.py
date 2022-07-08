@@ -20,7 +20,8 @@ setup(
         'pyasn1==0.4.8',
         'pycryptodomex==3.10.1',
         'dsinternals==1.2.4',
-        'minikerberos'
+        'minikerberos',
+        'winsspi'
     ],
     packages=find_packages(),
     include_package_data=True,
