@@ -44,6 +44,7 @@ Abuse ACL
     get_ntlm user - Shadow Credentials method to abuse GenericAll, GenericWrite and AllExtendedRights privilege
     write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID attribute format is {value}.
 Misc
+    switch_user user password/NTLM - Switch user shell.
     add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
     del_computer computer - Remove a computer from the domain.
     add_user new_user [parent] - Creates a new user.
