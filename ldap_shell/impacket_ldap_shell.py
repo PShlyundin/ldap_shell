@@ -46,7 +46,8 @@ class LdapShell(cmd.Cmd):
 
         self.use_rawinput = False
 
-        self.prompt = '\n# '
+        current_user = client.user.split('\\')[1]
+        self.prompt = f'\n{current_user}# '
         self.tid = None
         self.intro = 'Type help for list of commands'
         self.loggedIn = True
@@ -1103,6 +1104,7 @@ class LdapShell(cmd.Cmd):
                 nthash = password.split(":")[1]
         if nthash:
             if self.client.rebind(user=domain+'\\'+username, password=lmhash+':'+nthash, authentication='NTLM'):
+                self.prompt = f'\n{username}# '
                 log.info(f'Successfully! User {old_user} has been changed to {username}')
             else:
                 log.error('The user could not be changed. Please check the password.')
@@ -1111,6 +1113,7 @@ class LdapShell(cmd.Cmd):
             lmhash = 'aad3b435b51404eeaad3b435b51404ee'
             nthash = LdapShell.calculate_ntlm(password)
             if self.client.rebind(user=domain+'\\'+username, password=lmhash+':'+nthash, authentication='NTLM'):
+                self.prompt = f'\n{username}# '
                 log.info(f'Successfully! User {old_user} has been changed to {username}')
             else:
                 log.error('The user could not be changed. Please check the password.')
@@ -1154,7 +1157,7 @@ Abuse ACL
     get_ntlm user - Shadow Credentials method to abuse GenericAll, GenericWrite and AllExtendedRights privilege
     write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
 Misc
-    switch_user user - Switch user shell.
+    switch_user user password - Switch user shell.
     add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
     del_computer computer - Remove a new computer from the domain.
     add_user new_user [parent] - Creates a new user.
