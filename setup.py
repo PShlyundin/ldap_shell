@@ -21,7 +21,9 @@ setup(
         'pycryptodomex==3.10.1',
         'dsinternals==1.2.4',
         'minikerberos',
-        'winsspi'
+        'winsspi',
+	'impacket',
+	'pyOpenSSL'
     ],
     packages=find_packages(),
     include_package_data=True,

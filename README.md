@@ -8,7 +8,7 @@ These tools are only compatible with Python 3.5+. Clone the repository from GitH
 ```bash
 git clone https://github.com/z-Riocool/ldap_shell.git
 cd ldap_shell
-python3 setup.py install
+python3 -m pip install .
 ```
 
 ## Usage
@@ -57,8 +57,8 @@ exit - Terminates this session.
 - [ ] del_user - Delete user
 - [x] set_dcsync - If you have write access to the domain object, assign the DS-Replication right to the selected user
 - [x] del_dcsync - Delete DS-Replication right to the selected user
-- [ ] shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
-- [ ] get_all_laps - Get all LAPS passwords
+- [x] shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
+- [x] get_all_laps - Get all LAPS passwords
 - [x] set_owner - Abuse WriteOwner privilege
 - [x] dacl_modify - Set GenericAll, WriteDacl, WriteProperties or set MASK of privilege
 

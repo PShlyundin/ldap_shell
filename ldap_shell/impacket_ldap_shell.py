@@ -1,37 +1,34 @@
 """
 Main file.
 """
+import binascii
 import cmd
+import copy
+import getpass
+import hashlib
 import logging
 import random
 import re
 import shlex
 import string
 from struct import pack, unpack
-import getpass
-import hashlib
-import binascii
-import copy
-
-import ldap3
-from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
-from ldap3.protocol.microsoft import security_descriptor_control
-from ldap3.utils.conv import escape_filter_chars
-from ldap3.protocol.formatters.formatters import format_sid
-
-from ldap_shell import ldaptypes
-
-from dsinternals.common.data.hello.KeyCredential import KeyCredential
-from dsinternals.system.Guid import Guid
-from dsinternals.common.cryptography.X509Certificate2 import X509Certificate2
-from dsinternals.system.DateTime import DateTime
-from dsinternals.common.data.DNWithBinary import DNWithBinary
-
-from minikerberos.network.clientsocket import KerberosClientSocket
-from minikerberos.common.target import KerberosTarget
-from minikerberos.common.ccache import CCACHE
 
 import OpenSSL
+import ldap3
+from dsinternals.common.cryptography.X509Certificate2 import X509Certificate2
+from dsinternals.common.data.DNWithBinary import DNWithBinary
+from dsinternals.common.data.hello.KeyCredential import KeyCredential
+from dsinternals.system.DateTime import DateTime
+from dsinternals.system.Guid import Guid
+from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
+from ldap3.protocol.formatters.formatters import format_sid
+from ldap3.protocol.microsoft import security_descriptor_control
+from ldap3.utils.conv import escape_filter_chars
+from minikerberos.common.ccache import CCACHE
+from minikerberos.common.target import KerberosTarget
+from minikerberos.network.clientsocket import KerberosClientSocket
+
+from ldap_shell import ldaptypes
 from ldap_shell.myPKINIT import myPKINIT
 
 log = logging.getLogger('ldap-shell.shell')
@@ -1157,7 +1154,7 @@ Abuse ACL
     get_ntlm user - Shadow Credentials method to abuse GenericAll, GenericWrite and AllExtendedRights privilege
     write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
 Misc
-    switch_user user password - Switch user shell.
+    switch_user user password/NTLM - Switch user shell.
     add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
     del_computer computer - Remove a new computer from the domain.
     add_user new_user [parent] - Creates a new user.
