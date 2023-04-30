@@ -165,6 +165,7 @@ def get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash,
                     nthash, password, server, user_domain, username):
     if do_kerberos:
         connection = ldap3.Connection(server)
+        connection.bind()
         login_ldap3_kerberos(
             connection, username, password, domain, lmhash, nthash, aes_key, kdc_host
         )
@@ -308,6 +309,8 @@ def login_ldap3_kerberos(connection: ldap3.Connection, user: str, password: str,
         raise Exception(f'Failed to bind: {response}')
 
     connection.bound = True
+    connection.refresh_server_info()
+    connection.user = connection.extend.standard.who_am_i()
 
     return True
 

@@ -66,7 +66,6 @@ exit - Terminates this session.
 Apache
 
 ## Authors
-* [saber-nyan](https://saber-nyan.com) (main dev)
 * [Riocool](https://t.me/riocool)
 
 ## Credits

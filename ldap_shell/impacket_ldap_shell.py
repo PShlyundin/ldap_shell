@@ -73,7 +73,8 @@ class LdapShell(cmd.Cmd):
             ret_val = super().onecmd(line)
         except Exception:
             log.error('Failed to execute onecmd()', exc_info=True)
-        self.client.rebind()
+        if self.client.authentication == 'NTLM':
+            self.client.rebind()
         return ret_val
 
     @staticmethod
@@ -346,6 +347,8 @@ class LdapShell(cmd.Cmd):
         res = self.client.modify(group_dn, {'member': [(ldap3.MODIFY_ADD, [user_dn])]})
         if res:
             log.info('Adding user "%s" to group "%s" result: OK', user_name, group_name)
+            if self.client.authentication == 'ANONYMOUS' and self.client.user.split('\\')[1].lower() == user_name.lower():
+                log.info('You use kerberos auth and change self groups. Please, create new ticket and reconnect ldap_shell.')
         else:
             raise Exception(f'Failed to add user to group "{group_name}": {self.client.result["description"]}')
 
@@ -611,6 +614,8 @@ class LdapShell(cmd.Cmd):
 
         if self.client.result['result'] == 0:
             log.info('DACL modified successfully! %s now has control of %s', grantee_name, target_name)
+            if self.client.authentication == 'ANONYMOUS' and self.client.user.split('\\')[1].lower() == grantee.entry_dn.split(',')[0].split('=')[1].lower():
+                log.info('For the changes to take effect, please restart ldap_shell.') 
         else:
             self.process_error_response()
 
@@ -762,6 +767,8 @@ class LdapShell(cmd.Cmd):
         self.client.modify(entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, attr_values]}, controls=controls)
         if self.client.result['result'] == 0:
             log.info('DACL modified successfully! %s now Owner of %s!', grantee_name, target_name)
+            if self.client.authentication == 'ANONYMOUS' and self.client.user.split('\\')[1].lower() == grantee.entry_dn.split(',')[0].split('=')[1].lower():
+                log.info('For the changes to take effect, please restart ldap_shell.') 
         else:
             self.process_error_response()
 
@@ -887,6 +894,8 @@ class LdapShell(cmd.Cmd):
 
             if self.client.result['result'] == 0:
                 log.info('DACL modified successfully!')
+                if self.client.authentication == 'ANONYMOUS' and self.client.user.split('\\')[1].lower() == grantee.entry_dn.split(',')[0].split('=')[1].lower():
+                    log.info('You use kerberos auth and change self groups. Please, create new ticket and reconnect ldap_shell.')
             else:
                 self.process_error_response()
 
