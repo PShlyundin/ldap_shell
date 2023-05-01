@@ -196,8 +196,13 @@ class LdapShell(cmd.Cmd):
     def do_add_computer(self, line):
         args = shlex.split(line)
 
-        if not self.client.server.ssl:
-            return log.error('Error adding a new computer with LDAP requires LDAPS. Try -use-ldaps flag')
+        if not self.client.tls_started and not self.client.server.ssl:
+            log.info('Sending StartTLS command...')
+            if not self.client.start_tls():
+                log.error("StartTLS failed")
+                return log.error('Error adding a new computer with LDAP requires LDAPS. Try -use-ldaps flag')
+            else:
+                log.info('StartTLS succeded!')
 
         if len(args) != 1 and len(args) != 2:
             raise Exception('Expected a computer name and an optional password argument.')
@@ -210,7 +215,7 @@ class LdapShell(cmd.Cmd):
 
         if len(args) == 1:
             password = ''.join(
-                random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+                random.choice(string.ascii_letters + string.digits) for _ in range(25))
         else:
             password = args[1]
 
@@ -250,9 +255,6 @@ class LdapShell(cmd.Cmd):
 
     def do_del_computer(self, line):
         args = shlex.split(line)
-
-        if not self.client.server.ssl:
-            log.error('Error del a computer with LDAP requires LDAPS.')
 
         if len(args) != 1 and len(args) != 2:
             raise Exception('Expected a computer name and an optional password argument.')
@@ -1126,6 +1128,16 @@ class LdapShell(cmd.Cmd):
                 log.error('The user could not be changed. Please check the password.')
                 self.client = old_client
 
+    def do_start_tls(self, line):
+        if not self.client.tls_started and not self.client.server.ssl:
+            print('Sending StartTLS command...')
+            if not self.client.start_tls():
+                raise Exception("StartTLS failed")
+            else:
+                print('StartTLS succeded, you are now using LDAPS!')
+        else:
+            print('It seems you are already connected through a TLS channel.')
+
     def get_dn(self, sam_name):
         if ',' in sam_name:
             return sam_name
@@ -1170,6 +1182,7 @@ Misc
     add_user new_user [parent] - Creates a new user.
     disable_account user - Disable the user's account.
     enable_account user - Enable the user's account.
+    start_tls - Send a StartTLS command to upgrade from LDAP to LDAPS. Use this to bypass channel binding for operations necessitating an encrypted channel.
 exit - Terminates this session.''')
 
     def do_EOF(self, line):
