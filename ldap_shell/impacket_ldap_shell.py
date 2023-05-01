@@ -471,9 +471,10 @@ class LdapShell(cmd.Cmd):
         for argument in arguments[1:]:
             attributes.append(argument)
 
-        search_query = ''.join(
-            f'({attribute}=*{escape_filter_chars(arguments[0])}*)' for attribute in filter_attributes)
-        self.search(f'(|{search_query})', *attributes)
+        search_query = '{}'.format(arguments[0])
+        log.debug('search_query={}'.format(search_query))
+        log.debug('attributes={}'.format(attributes))
+        self.search('(|{})'.format(search_query), *attributes)
 
     def do_set_dontreqpreauth(self, line):
         UF_DONT_REQUIRE_PREAUTH = 4194304
