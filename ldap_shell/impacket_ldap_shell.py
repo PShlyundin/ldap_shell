@@ -354,6 +354,25 @@ class LdapShell(cmd.Cmd):
         else:
             raise Exception(f'Failed to add user to group "{group_name}": {self.client.result["description"]}')
 
+    def do_del_user(self, line):
+        args = shlex.split(line)
+        if len(args) < 1:
+            log.error("Enter the user to be deleted.")
+            return
+
+        user_name = args[0]
+        user_dn = self.get_dn(user_name)
+        if not user_dn:
+            raise Exception(f'User not found in LDAP: {user_name}')
+
+        user_name = user_dn.split(',')[0][3:]
+
+        res = self.client.delete(user_dn)
+        if res:
+            log.info('Delete user "%s" result: OK', user_name)
+        else:
+            raise Exception(f'Failed to delete user: {self.client.result["description"]}')
+
     def do_del_user_from_group(self, line):
         user_name, group_name = shlex.split(line)
 
@@ -1180,6 +1199,7 @@ Misc
     add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
     del_computer computer - Remove a new computer from the domain.
     add_user new_user [parent] - Creates a new user.
+    del_user user - Deletes an existing user.
     disable_account user - Disable the user's account.
     enable_account user - Enable the user's account.
     start_tls - Send a StartTLS command to upgrade from LDAP to LDAPS. Use this to bypass channel binding for operations necessitating an encrypted channel.
