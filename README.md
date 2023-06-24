@@ -48,13 +48,14 @@ Misc
     add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
     del_computer computer - Remove a computer from the domain.
     add_user new_user [parent] - Creates a new user.
+    del_user user - Deletes an existing user.
     disable_account user - Disable the user's account.
     enable_account user - Enable the user's account.
 exit - Terminates this session.
 ```
 ## TODO
 - [x] del_computer - Delete computer
-- [ ] del_user - Delete user
+- [x] del_user - Delete user
 - [x] set_dcsync - If you have write access to the domain object, assign the DS-Replication right to the selected user
 - [x] del_dcsync - Delete DS-Replication right to the selected user
 - [x] shadow_credantional - inherited [pywhisker](https://github.com/ShutdownRepo/pywhisker)
