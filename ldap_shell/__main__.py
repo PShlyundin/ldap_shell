@@ -118,7 +118,12 @@ def start_shell(options: argparse.Namespace):
         target, domain, username, password, options.k, use_ldaps, options.hashes,
         lmhash, nthash, options.aesKey, options.dc_host
     )
-    log.debug('Connection established')
+
+    if 'result' in client.result and client.result['result'] == 0:
+        log.debug('Connection established')
+    else:
+        log.critical('Unknown error. Rerun with -debug to diagnose the issue.')
+        sys.exit(1)
 
     domain_dump_config = ldapdomaindump.domainDumpConfig()
     domain_dump_config.basepath = options.lootdir
@@ -165,18 +170,31 @@ def get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash,
                     nthash, password, server, user_domain, username):
     if do_kerberos:
         connection = ldap3.Connection(server)
-        connection.bind()
+        bind_result = connection.bind()
+        if not bind_result:
+            log.debug(f'Failed to perform LDAP bind to {server} w/ user {user_domain} and the provided password.')
+            log.debug('Details:')
+            log.debug(connection.result)
         login_ldap3_kerberos(
             connection, username, password, domain, lmhash, nthash, aes_key, kdc_host
         )
     elif hashes is not None:
         connection = ldap3.Connection(server, user=user_domain, password=hashes,
                                       authentication=ldap3.NTLM)
-        connection.bind()
+        bind_result = connection.bind()
+        if not bind_result:
+            log.debug(f'Failed to perform LDAP bind to {server} w/ user {user_domain} and the provided hash.')
+            log.debug('Details:')
+            log.debug(connection.result)
     else:
         connection = ldap3.Connection(server, user=user_domain, password=password,
                                       authentication=ldap3.NTLM)
-        connection.bind()
+        bind_result = connection.bind()
+        if not bind_result:
+            log.debug(f'Failed to perform LDAP bind with user {user_domain} and the provided password.')
+            log.debug('Details:')
+            log.debug(connection.result)
+
     return connection
 
 
