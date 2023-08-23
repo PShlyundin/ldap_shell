@@ -72,7 +72,3 @@ Apache
 ## Credits
 * [Impacket](https://github.com/SecureAuthCorp/impacket)
 * [saber-nyan](https://saber-nyan.com)
-
-## Donate
-If you want to support the project or have unnecessary money :)
-ETH: 0xAA89044f8BE2F712Cc987Be00F55296B3045c9c3
