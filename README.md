@@ -6,7 +6,7 @@ This project is a fork of ldap_shell (https://github.com/SecureAuthCorp/impacket
 These tools are only compatible with Python 3.5+. Clone the repository from GitHub, install the dependencies and you should be good to go:
 
 ```bash
-git clone https://github.com/z-Riocool/ldap_shell.git
+git clone https://github.com/PShlyundin/ldap_shell.git
 cd ldap_shell
 python3 -m pip install .
 ```
