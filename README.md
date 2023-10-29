@@ -27,7 +27,7 @@ Get Info
     search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
     get_user_groups user - Retrieves all groups for a specified user.
     get_group_users group - Retrieves all members of a group.
-    get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
+    get_laps_gmsa [computer] - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
     get_maq user - Get ms-DS-MachineAccountQuota for current user.
 Abuse ACL
     add_user_to_group user group - Adds a user to a group.
