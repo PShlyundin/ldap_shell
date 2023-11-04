@@ -390,8 +390,14 @@ class LdapShell(Prompt):
 
 
     def do_change_password(self, line):
-        if not self.client.server.ssl:
-            return log.error('Error change password with LDAP requires LDAPS. Try -use-ldaps flag')
+        if not self.client.tls_started and not self.client.server.ssl:
+            log.info('Sending StartTLS command...')
+            if not self.client.start_tls():
+                log.error("StartTLS failed")
+                return log.error('Error change password with LDAP requires LDAPS. Try -use-ldaps flag')
+            else:
+                log.info('StartTLS succeded!')
+
         args = shlex.split(line)
 
         if len(args) != 1 and len(args) != 2:

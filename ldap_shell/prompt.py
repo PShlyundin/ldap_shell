@@ -8,8 +8,6 @@ from prompt_toolkit.formatted_text import HTML
 import string
 from ldap_shell.helper import Helper
 
-
-
 class ShellCompleter(FuzzyWordCompleter):
 	def __init__(self, list_commands, meta):
 		self.list_commands = list_commands
@@ -78,13 +76,13 @@ class Prompt:
 
 	def cmdloop(self):
 		if self.noninteractive:
-			session = PromptSession(self.prompt,)
+			self.session = PromptSession(self.prompt,)
 		else:
-			session = PromptSession(self.prompt, completer=self.completer, complete_style=CompleteStyle.MULTI_COLUMN, history=self.history,
+			self.session = PromptSession(self.prompt, completer=self.completer, complete_style=CompleteStyle.MULTI_COLUMN, history=self.history,
 				auto_suggest=AutoSuggestFromHistory(),)
 		while True:
 			try:
-				line = session.prompt()
+				line = self.session.prompt(self.prompt)
 				if line.strip() == 'exit':
 					break
 				self.onecmd(line)
