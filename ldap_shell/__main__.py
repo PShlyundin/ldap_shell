@@ -62,6 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-hashes', action='store', metavar='LMHASH:BTHASH',
                         help='NTLM hashes, format is LMHASH:BTHASH')
     parser.add_argument('-debug', action='store_true', help='print debug output')
+    parser.add_argument('-non-interactive', action='store_true', help='non-interactive command prompt')
     parser.add_argument('-log-path', action='store', metavar='path', type=pathlib.Path,
                         help='save logs to specified path')
     parser.add_argument('-l', '--lootdir', action='store', type=pathlib.Path, metavar='LOOTDIR', default='.',
@@ -79,11 +80,6 @@ def main() -> None:
         init_logging(log_debug, log_path)
 
     start_shell(options)
-
-
-class StdioShell:
-    stdin = sys.stdin
-    stdout = sys.stdout
 
 
 def start_shell(options: argparse.Namespace):
@@ -129,9 +125,14 @@ def start_shell(options: argparse.Namespace):
     domain_dump_config.basepath = options.lootdir
     domain_dumper = ldapdomaindump.domainDumper(client.server, client, domain_dump_config)
 
-    shell = LdapShell(
-        sys.stdin, sys.stdout, domain_dumper, client
-    )
+    if options.non_interactive:
+            shell = LdapShell(
+                domain_dumper, client, noninteractive=True
+            )
+    else:
+        shell = LdapShell(
+            domain_dumper, client
+        )
     log.info('Starting interactive shell')
     shell.cmdloop()  # Blocks forever
     log.info('Bye!')
