@@ -8,7 +8,7 @@ with open('README.md', mode='r', encoding='utf-8') as f:
 
 setup(
     name='ldap_shell',
-    version='0.1.1',
+    version='1.0.0',
     description='LDAP shell utility from Impacket',
     long_description=readme,
     author='Riocool and saber-nyan',

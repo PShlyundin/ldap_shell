@@ -62,6 +62,12 @@ exit - Terminates this session.
 - [x] get_all_laps - Get all LAPS passwords
 - [x] set_owner - Abuse WriteOwner privilege
 - [x] dacl_modify - Set GenericAll, WriteDacl, WriteProperties or set MASK of privilege
+- [x] Add read GMSA
+- [x] Upgrade shell
+- [ ] Integrate SSPI
+- [ ] Build for windows
+- [ ] Patched to work with ldap signing
+- [ ] Patched to work with ldaps channel binding
 
 ## License
 Apache
