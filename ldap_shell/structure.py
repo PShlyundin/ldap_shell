@@ -1,7 +1,9 @@
-from __future__ import division
-from __future__ import print_function
-from struct import pack, unpack, calcsize
-from six import b, PY3
+import logging
+from struct import calcsize, pack, unpack
+
+from ldap_shell.utils import b
+
+log = logging.getLogger('ldap-shell.internal')
 
 
 class Structure:
@@ -93,8 +95,7 @@ class Structure:
         self.data = data
 
     def packField(self, fieldName, format=None):
-        if self.debug:
-            print("packField( %s | %s )" % (fieldName, format))
+        log.debug("packField( %s | %s )", fieldName, format)
 
         if format is None:
             format = self.formatForField(fieldName)
@@ -105,7 +106,7 @@ class Structure:
             ans = self.pack(format, None, field=fieldName)
 
         if self.debug:
-            print("\tanswer %r" % ans)
+            log.debug("answer %r", ans)
 
         return ans
 
@@ -119,7 +120,8 @@ class Structure:
             except Exception as e:
                 if field[0] in self.fields:
                     e.args += (
-                    "When packing field '%s | %s | %r' in %s" % (field[0], field[1], self[field[0]], self.__class__),)
+                        "When packing field '%s | %s | %r' in %s" % (
+                            field[0], field[1], self[field[0]], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (field[0], field[1], self.__class__),)
                 raise
@@ -133,11 +135,11 @@ class Structure:
     def fromString(self, data):
         self.rawData = data
         for field in self.commonHdr + self.structure:
-            if self.debug:
-                print("fromString( %s | %s | %r )" % (field[0], field[1], data))
+
+            log.debug("fromString( %s | %s | %r )", field[0], field[1], data)
             size = self.calcUnpackSize(field[1], data, field[0])
             if self.debug:
-                print("  size = %d" % size)
+                log.debug("size = %d", size)
             dataClassOrCode = b
             if len(field) > 2:
                 dataClassOrCode = field[2]
@@ -172,8 +174,8 @@ class Structure:
         return len(self.getData())
 
     def pack(self, format, data, field=None):
-        if self.debug:
-            print("  pack( %s | %r | %s)" % (format, data, field))
+
+        log.debug("pack( %s | %r | %s)", format, data, field)
 
         if field:
             addressField = self.findAddressFieldFor(field)
@@ -284,7 +286,7 @@ class Structure:
 
     def unpack(self, format, data, dataClassOrCode=b, field=None):
         if self.debug:
-            print("  unpack( %s | %r )" % (format, data))
+            log.debug("unpack( %s | %r )", format, data)
 
         if field:
             addressField = self.findAddressFieldFor(field)
@@ -352,10 +354,7 @@ class Structure:
         if format == 'z':
             if data[-1:] != b('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
-            if PY3:
-                return data[:-1].decode('latin-1')
-            else:
-                return data[:-1]
+            return data[:-1].decode('latin-1')
 
         # unicode specifier
         if format == 'u':
@@ -449,8 +448,7 @@ class Structure:
         return calcsize(format)
 
     def calcUnpackSize(self, format, data, field=None):
-        if self.debug:
-            print("  calcUnpackSize( %s | %s | %r)" % (field, format, data))
+        log.debug("calcUnpackSize( %s | %s | %r)", field, format, data)
 
         # void specifier
         if format[:1] == '_':

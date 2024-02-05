@@ -30,7 +30,7 @@ from ldap_shell import ldaptypes
 from ldap_shell.prompt import Prompt
 from ldap_shell.myPKINIT import myPKINIT
 from ldap_shell.helper import Helper
-from ldap_shell.Structure import MSDS_MANAGEDPASSWORD_BLOB
+from ldap_shell.structure import MSDS_MANAGEDPASSWORD_BLOB
 
 log = logging.getLogger('ldap-shell.shell')
 
