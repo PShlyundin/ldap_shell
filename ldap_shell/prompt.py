@@ -1,4 +1,3 @@
-from prompt_toolkit import prompt
 from prompt_toolkit.completion import FuzzyWordCompleter, Completion
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
