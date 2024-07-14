@@ -1,5 +1,4 @@
 import binascii
-import cmd
 import copy
 import getpass
 import hashlib
@@ -870,17 +869,22 @@ class LdapShell(Prompt):
         success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(target_name)})',
                                      attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
         if len(self.client.entries) == 0:
-            #Try modify root
-            log.info('Not found user, try modify root')
-            success = self.client.search(self.domain_dumper.root, '(objectClass=*)', attributes=['objectSid', 'nTSecurityDescriptor'],
-                               controls=controls)
+            #Try modify OU
+            log.info('Not found user, try modify OU')
+            success = self.client.search(
+                self.domain_dumper.root,  f'(&(objectClass=organizationalUnit)(ou={escape_filter_chars(target_name)}))',  # Фильтр поиска
+                attributes=['distinguishedName', 'nTSecurityDescriptor'], controls=None
+            )
+            if len(self.client.entries) == 0:
+                #Try modify root
+                log.info('Not found user, try modify root')
+                success = self.client.search(self.domain_dumper.root, '(objectClass=*)', attributes=['objectSid', 'nTSecurityDescriptor'],
+                                   controls=controls)
         if not success:
             raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
 
         target = self.client.entries[0]
-        target_sid = target['objectSid'].value
         log.info('Found Target DN: %s', target.entry_dn)
-        log.info('Target SID: %s', target_sid)
 
         success = self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(grantee_name)})',
                                      attributes=['objectSid'])
