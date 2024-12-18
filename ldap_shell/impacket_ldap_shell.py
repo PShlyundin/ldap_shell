@@ -287,17 +287,18 @@ class LdapShell(Prompt):
             raise Exception('A username is required.')
 
         new_user = args[0]
-        if len(args) == 1:
-            parent_dn = f'CN=Users,{self.domain_dumper.root}'
+        parent_dn = f'CN=Users,{self.domain_dumper.root}'
+        
+        if len(args) > 1:
+            new_password = args[1]
         else:
-            parent_dn = args[1]
+            new_password = ''.join(
+                random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
 
         self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(new_user)})', attributes=['objectSid'])
         if len(self.client.entries) != 0:
             raise Exception(f'Failed add user: user {new_user} already exists!')
 
-        new_password = ''.join(
-            random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
 
         new_user_dn = f'CN={new_user},{parent_dn}'
         ucd = {
@@ -461,6 +462,7 @@ class LdapShell(Prompt):
             raise Exception(f'Error expected only one search result got {len(self.client.entries)} results')
 
         user_dn = self.client.entries[0].entry_dn
+
         if not user_dn:
             raise Exception(f'User not found in LDAP: {user_name}')
 
