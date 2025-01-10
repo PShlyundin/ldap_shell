@@ -488,11 +488,14 @@ class LdapShell(Prompt):
         if len(arguments) == 0:
             raise Exception('A query is required.')
 
-        filter_attributes = ['name', 'distinguishedName', 'sAMAccountName']
-        attributes = filter_attributes[:]
-        attributes.append('objectSid')
-        for argument in arguments[1:]:
-            attributes.append(argument)
+        default_filter_attributes = ['name', 'distinguishedName', 'sAMAccountName', 'objectSid']
+        attributes = []
+        if len(arguments) > 1:
+            # Split remaining arguments on both commas and spaces
+            attr_string = ' '.join(arguments[1:])
+            attributes.extend([attr.strip() for attr in re.split(r'[,\s]+', attr_string) if attr.strip()])
+        else:
+            attributes = default_filter_attributes
 
         search_query = '{}'.format(arguments[0])
         log.debug('search_query={}'.format(search_query))

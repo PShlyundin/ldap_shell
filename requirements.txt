@@ -1,0 +1,11 @@
+ldap3
+ldapdomaindump
+pyasn1
+pycryptodomex
+dsinternals
+minikerberos
+winsspi
+impacket
+pyOpenSSL
+pycryptodome
+prompt_toolkit

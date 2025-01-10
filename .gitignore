@@ -129,3 +129,5 @@ pyvenv.cfg
 pip-selfcheck.json
 logs/*
 !.gitkeep
+.vscode/launch.json
+.vscode
