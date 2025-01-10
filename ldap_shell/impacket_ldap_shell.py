@@ -30,6 +30,10 @@ from ldap_shell.prompt import Prompt
 from ldap_shell.myPKINIT import myPKINIT
 from ldap_shell.helper import Helper
 from ldap_shell.structure import MSDS_MANAGEDPASSWORD_BLOB
+from ldap_shell.ldap_moduls.hello.mm import HelloModule
+
+import importlib
+import os
 
 log = logging.getLogger('ldap-shell.shell')
 
@@ -46,6 +50,18 @@ class LdapShell(Prompt):
         self.client = client
         self.domain_dumper = domain_dumper
         self.helper = Helper()
+        
+        # Load modules from ldap_moduls
+        self.modules = {}
+        self.load_modules()
+
+    def load_modules(self):
+        module_path = os.path.join(os.path.dirname(__file__), 'ldap_moduls')
+        for module_name in os.listdir(module_path):
+            if module_name.endswith('.py') and module_name != '__init__.py':
+                module_name = module_name[:-3]  # Remove .py extension
+                module = importlib.import_module(f'ldap_shell.ldap_moduls.{module_name}')
+                self.modules[module_name] = module
 
     def process_error_response(self):
         if self.client.result['result'] == 50:
@@ -246,6 +262,23 @@ class LdapShell(Prompt):
                 log.error('Failed to add a new computer: %s', self.client.result)
         else:
             log.info('Adding new computer with username "%s" and password "%s" result: OK', computer_name, password)
+
+    def do_hello_(self, line):
+        log.info('Hello, world!{}'.format(line))
+
+    def do_hello(self, line):
+        m = HelloModule(
+            param=HelloModule.parse_args(line), 
+            log=log
+        )
+        m()
+
+    def do_test_del_computer(self, line):
+        m = HelloModule(
+            param='test', 
+            log=log
+        )
+        m()
 
     def do_del_computer(self, line):
         args = shlex.split(line)
@@ -488,19 +521,18 @@ class LdapShell(Prompt):
         if len(arguments) == 0:
             raise Exception('A query is required.')
 
-        default_filter_attributes = ['name', 'distinguishedName', 'sAMAccountName', 'objectSid']
         attributes = []
         if len(arguments) > 1:
             # Split remaining arguments on both commas and spaces
             attr_string = ' '.join(arguments[1:])
             attributes.extend([attr.strip() for attr in re.split(r'[,\s]+', attr_string) if attr.strip()])
         else:
-            attributes = default_filter_attributes
+            attributes = None
 
         search_query = '{}'.format(arguments[0])
         log.debug('search_query={}'.format(search_query))
         log.debug('attributes={}'.format(attributes))
-        self.search('(|{})'.format(search_query), *attributes)
+        self.search('(|{})'.format(search_query), *attributes if attributes else None)
 
     def do_set_dontreqpreauth(self, line):
         UF_DONT_REQUIRE_PREAUTH = 4194304
@@ -1134,7 +1166,6 @@ class LdapShell(Prompt):
     def search(self, query, *attributes):
         self.client.search(self.domain_dumper.root, query, attributes=attributes)
         for entry in self.client.entries:
-            log.info('Search - %s', entry.entry_dn)
             for attribute in attributes:
                 value = entry[attribute].value
                 if value:
