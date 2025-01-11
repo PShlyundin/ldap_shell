@@ -50,18 +50,6 @@ class LdapShell(Prompt):
         self.client = client
         self.domain_dumper = domain_dumper
         self.helper = Helper()
-        
-        # Load modules from ldap_moduls
-        self.modules = {}
-        self.load_modules()
-
-    def load_modules(self):
-        module_path = os.path.join(os.path.dirname(__file__), 'ldap_moduls')
-        for module_name in os.listdir(module_path):
-            if module_name.endswith('.py') and module_name != '__init__.py':
-                module_name = module_name[:-3]  # Remove .py extension
-                module = importlib.import_module(f'ldap_shell.ldap_moduls.{module_name}')
-                self.modules[module_name] = module
 
     def process_error_response(self):
         if self.client.result['result'] == 50:

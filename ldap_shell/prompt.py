@@ -6,6 +6,8 @@ from prompt_toolkit.shortcuts import CompleteStyle
 from prompt_toolkit.formatted_text import HTML
 import string
 from ldap_shell.helper import Helper
+import os
+import importlib
 
 class ShellCompleter(FuzzyWordCompleter):
 	def __init__(self, list_commands, meta):
@@ -36,6 +38,17 @@ class Prompt:
 		self.completer = ShellCompleter(['_'.join(e.split('_')[1:]) for e in dir(self) if 'do_' in e and e!='do_EOF'], self.meta)
 		self.identchars = string.ascii_letters + string.digits + '_'
 
+		self.modules = {}
+		self.load_modules()
+
+	def load_modules(self):
+		module_path = os.path.join(os.path.dirname(__file__), 'ldap_moduls')
+		for module_name in os.listdir(module_path):
+			if os.path.isdir(os.path.join(module_path, module_name)) and module_name != '__pycache__':
+				module = importlib.import_module(f'ldap_shell.ldap_moduls.{module_name}.ldap_module')
+				self.modules[module_name] = module
+		print(f'Loaded modules: {self.modules}')
+
 	def default(self, line):
 		self.stdout.write('*** Unknown syntax: %s\n'%line)
 
@@ -55,7 +68,7 @@ class Prompt:
 		cmd, arg = line[:i], line[i:].strip()
 		return cmd, arg, line
 
-	def onecmd(self, line):
+	def onecmd_(self, line):
 		cmd, arg, line = self.parseline(line)
 		if not line:
 			return self.emptyline()
@@ -72,6 +85,15 @@ class Prompt:
 			except AttributeError:
 				return self.default(line)
 			return func(arg)
+
+	def onecmd(self, line):
+		cmd, arg, line = self.parseline(line)
+		print(f'cmd: {cmd}, arg: {arg}, line: {line}')
+		if cmd in self.modules:
+			module = self.modules[cmd]
+			return module.LdapShellModule(arg)()
+		else:
+			print(f'Module {cmd} not found')
 
 	def cmdloop(self):
 		if self.noninteractive:
