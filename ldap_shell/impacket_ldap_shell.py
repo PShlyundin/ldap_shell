@@ -30,7 +30,7 @@ from ldap_shell.prompt import Prompt
 from ldap_shell.myPKINIT import myPKINIT
 from ldap_shell.helper import Helper
 from ldap_shell.structure import MSDS_MANAGEDPASSWORD_BLOB
-from ldap_shell.ldap_moduls.hello.mm import HelloModule
+from ldap_shell.ldap_moduls.hello.ldap_module import LdapShellModule
 
 import importlib
 import os
@@ -267,18 +267,15 @@ class LdapShell(Prompt):
         log.info('Hello, world!{}'.format(line))
 
     def do_hello(self, line):
-        m = HelloModule(
-            param=HelloModule.parse_args(line), 
-            log=log
-        )
+        m = LdapShellModule(line, log=log)
         m()
 
-    def do_test_del_computer(self, line):
-        m = HelloModule(
-            param='test', 
-            log=log
-        )
-        m()
+#    def do_test_del_computer(self, line):
+#        m = HelloModule(
+#            param='test', 
+#            log=log
+#        )
+#        m()
 
     def do_del_computer(self, line):
         args = shlex.split(line)
