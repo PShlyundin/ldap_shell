@@ -30,7 +30,7 @@ from ldap_shell.prompt import Prompt
 from ldap_shell.myPKINIT import myPKINIT
 from ldap_shell.helper import Helper
 from ldap_shell.structure import MSDS_MANAGEDPASSWORD_BLOB
-from ldap_shell.ldap_moduls.hello.ldap_module import LdapShellModule
+from ldap_shell.ldap_moduls.dump.ldap_module import LdapShellModule
 
 import importlib
 import os
@@ -41,7 +41,7 @@ log = logging.getLogger('ldap-shell.shell')
 class LdapShell(Prompt):
     LDAP_MATCHING_RULE_IN_CHAIN = '1.2.840.113556.1.4.1941'
     def __init__(self, domain_dumper, client, noninteractive=False):
-        super().__init__()
+        super().__init__(domain_dumper, client)
         current_user = client.user.split('\\')[1]
         self.noninteractive = noninteractive
         self.prompt = f'\n{current_user}# '

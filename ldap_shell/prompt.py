@@ -8,6 +8,7 @@ import string
 from ldap_shell.helper import Helper
 import os
 import importlib
+import logging
 
 class ShellCompleter(FuzzyWordCompleter):
 	def __init__(self, list_commands, meta):
@@ -28,7 +29,9 @@ class ShellCompleter(FuzzyWordCompleter):
 					)
 
 class Prompt:
-	def __init__(self):
+	def __init__(self, domain_dumper, client):
+		self.domain_dumper = domain_dumper
+		self.client = client
 		self.prompt = '# '
 		self.history = InMemoryHistory()
 		self.helper = Helper()
@@ -44,13 +47,10 @@ class Prompt:
 	def load_modules(self):
 		module_path = os.path.join(os.path.dirname(__file__), 'ldap_moduls')
 		for module_name in os.listdir(module_path):
-			if os.path.isdir(os.path.join(module_path, module_name)) and module_name != '__pycache__':
+			if os.path.isdir(os.path.join(module_path, module_name)) and module_name != '__pycache__' and module_name != 'template':
 				module = importlib.import_module(f'ldap_shell.ldap_moduls.{module_name}.ldap_module')
 				self.modules[module_name] = module
 		print(f'Loaded modules: {self.modules}')
-
-	def default(self, line):
-		self.stdout.write('*** Unknown syntax: %s\n'%line)
 
 	def parseline(self, line):
 		line = line.strip()
@@ -58,40 +58,34 @@ class Prompt:
 			return None, None, line
 		elif line[0] == '?':
 			line = 'help ' + line[1:]
-		elif line[0] == '!':
-			if hasattr(self, 'do_shell'):
-				line = 'shell ' + line[1:]
-			else:
-				return None, None, line
 		i, n = 0, len(line)
 		while i < n and line[i] in self.identchars: i = i+1
 		cmd, arg = line[:i], line[i:].strip()
 		return cmd, arg, line
 
-	def onecmd_(self, line):
+	def is_valid_line(self, line):
 		cmd, arg, line = self.parseline(line)
 		if not line:
-			return self.emptyline()
+			return False
 		if cmd is None:
-			return self.default(line)
+			return False
 		self.lastcmd = line
 		if line == 'EOF' :
 			self.lastcmd = ''
 		if cmd == '':
-			return self.default(line)
-		else:
-			try:
-				func = getattr(self, 'do_' + cmd)
-			except AttributeError:
-				return self.default(line)
-			return func(arg)
+			return False
+		return True
 
 	def onecmd(self, line):
-		cmd, arg, line = self.parseline(line)
+		cmd, arg, _ = self.parseline(line)
+		if self.is_valid_line(line) is False:
+			print(f'*** Unknown syntax: {line}')
+			return
 		print(f'cmd: {cmd}, arg: {arg}, line: {line}')
 		if cmd in self.modules:
 			module = self.modules[cmd]
-			return module.LdapShellModule(arg)()
+			log = logging.getLogger('ldap-shell.shell')
+			return module.LdapShellModule(arg, self.domain_dumper, self.client, log)()
 		else:
 			print(f'Module {cmd} not found')
 
