@@ -3,9 +3,9 @@ from ldap3 import Connection
 from ldapdomaindump import domainDumper
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from ldap_shell.ldap_moduls.base_module import BaseLdapModule, ModuleArgument, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ModuleArgument, ArgumentType
 
-class DumpModuleArgs(BaseModel):
+class ModuleArgs(BaseModel):
     """Model for describing module arguments"""
     output_dir: str = Field(..., description="Directory to save dump files")
     
@@ -19,7 +19,7 @@ class LdapShellModule(BaseLdapModule):
                  domain_dumper: domainDumper, 
                  client: Connection,
                  log=None):
-        self.args = DumpModuleArgs(**args_dict)  # Automatic validation
+        self.args = ModuleArgs(**args_dict)  # Automatic validation
         self.domain_dumper = domain_dumper
         self.client = client
         self.log = log or logging.getLogger('ldap-shell.shell')

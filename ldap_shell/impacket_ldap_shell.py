@@ -30,7 +30,7 @@ from ldap_shell.prompt import Prompt
 from ldap_shell.myPKINIT import myPKINIT
 from ldap_shell.helper import Helper
 from ldap_shell.structure import MSDS_MANAGEDPASSWORD_BLOB
-from ldap_shell.ldap_moduls.dump.ldap_module import LdapShellModule
+from ldap_shell.ldap_modules.dump.ldap_module import LdapShellModule
 
 import importlib
 import os

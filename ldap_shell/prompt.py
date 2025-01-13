@@ -12,7 +12,7 @@ import logging
 from pydantic import ValidationError
 from prompt_toolkit.completion import Completer
 from pathlib import Path
-from ldap_shell.ldap_moduls.base_module import ArgumentType
+from ldap_shell.ldap_modules.base_module import ArgumentType
 from prompt_toolkit.document import Document
 from prompt_toolkit.auto_suggest import ConditionalAutoSuggest
 from prompt_toolkit.key_binding import KeyBindings
@@ -129,7 +129,7 @@ class ModuleAutoSuggest(AutoSuggest):
 
 		module_class = self.modules[module_name].LdapShellModule
 		arguments = module_class.get_arguments()
-
+		
 		# Determine current argument
 		current_arg_index = len(words) - 1
 		if current_arg_index >= len(arguments):
@@ -198,10 +198,10 @@ class Prompt:
 				b.complete_next()
 
 	def load_modules(self):
-		module_path = os.path.join(os.path.dirname(__file__), 'ldap_moduls')
+		module_path = os.path.join(os.path.dirname(__file__), 'ldap_modules')
 		for module_name in os.listdir(module_path):
 			if os.path.isdir(os.path.join(module_path, module_name)) and module_name != '__pycache__' and module_name != 'template':
-				module = importlib.import_module(f'ldap_shell.ldap_moduls.{module_name}.ldap_module')
+				module = importlib.import_module(f'ldap_shell.ldap_modules.{module_name}.ldap_module')
 				self.modules[module_name] = module
 		print(f'Loaded modules: {self.modules}')
 
@@ -278,6 +278,9 @@ class Prompt:
 				return self.execute_module(cmd, args_dict)
 			except ValueError as e:
 				print(f"Error: {e}")
+				import traceback
+				print("Traceback:")
+				print(traceback.format_exc())
 		else:
 			print(f'Module {cmd} not found')
 
