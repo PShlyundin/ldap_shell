@@ -29,6 +29,12 @@ setup(
     ],
     packages=find_packages(),
     include_package_data=True,
+    package_data={
+        'ldap_shell': [
+            'ldap_modules/*/ldap_module.py',
+            'ldap_modules/*/*',  # Включаем все файлы в подпапках модулей
+        ]
+    },
     entry_points={
         'console_scripts': ['ldap_shell=ldap_shell.__main__:main', ],
     },

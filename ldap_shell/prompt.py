@@ -36,6 +36,19 @@ class ShellCompleter(FuzzyWordCompleter):
 					)
 
 class ModuleCompleter(Completer):
+	# Список общих LDAP атрибутов
+	COMMON_LDAP_ATTRIBUTES = [
+		'objectSid', 'objectGUID', 'objectClass', 'cn', 'sn', 'givenName', 'displayName',
+		'name', 'sAMAccountName', 'sAMAccountType', 'userPrincipalName', 'userAccountControl',
+		'accountExpires', 'adminCount', 'badPasswordTime', 'badPwdCount', 'codePage',
+		'countryCode', 'description', 'distinguishedName', 'groupType', 'homeDirectory',
+		'homeDrive', 'lastLogoff', 'lastLogon', 'lastLogonTimestamp', 'logonCount',
+		'mail', 'memberOf', 'primaryGroupID', 'profilePath', 'pwdLastSet',
+		'scriptPath', 'servicePrincipalName', 'trustDirection', 'trustType',
+		'whenChanged', 'whenCreated', 'objectCategory', 'dSCorePropagationData',
+		'instanceType', 'uSNChanged', 'uSNCreated'
+	]
+
 	def __init__(self, modules, current_module=None):
 		self.modules = modules
 		self.current_module = current_module
@@ -71,6 +84,38 @@ class ModuleCompleter(Completer):
 			
 		current_arg = arguments[current_arg_index]
 		
+		# Если текущий аргумент типа ATTRIBUTES
+		if current_arg.arg_type == ArgumentType.ATTRIBUTES:
+			current_word = words[-1] if len(words) > 1 else ''
+			
+			# Разбиваем текущий ввод на части по запятой
+			if ',' in current_word:
+				prefix = ','.join(current_word.split(',')[:-1]) + ','
+				current_word = current_word.split(',')[-1].strip()
+			else:
+				prefix = ''
+				
+			# Создаем словарь с описаниями атрибутов
+			meta_dict = {attr: "LDAP attribute" for attr in self.COMMON_LDAP_ATTRIBUTES}
+			
+			# Используем FuzzyWordCompleter для атрибутов
+			completer = FuzzyWordCompleter(
+				words=self.COMMON_LDAP_ATTRIBUTES,
+				meta_dict=meta_dict
+			)
+			
+			# Получаем completion для текущего слова
+			for completion in completer.get_completions(Document(current_word.lower()), complete_event):
+				# Добавляем префикс к completion, если он есть
+				new_text = prefix + completion.text
+				yield Completion(
+					new_text,
+					start_position=-len(current_word) - len(prefix),
+					display=completion.display,
+					display_meta=completion.display_meta
+				)
+			return
+			
 		# If current argument is a directory
 		if current_arg.arg_type == ArgumentType.DIRECTORY:
 			current_word = words[-1] if len(words) > 1 else ''
@@ -197,7 +242,14 @@ class Prompt:
 				b.complete_next()
 
 	def load_modules(self):
+		"""Load all modules from ldap_modules directory"""
+		self.modules = {}
 		module_path = os.path.join(os.path.dirname(__file__), 'ldap_modules')
+		
+		# Debug logging
+		print(f"Looking for modules in: {module_path}")
+		print(f"Available directories: {os.listdir(module_path)}")
+		
 		for module_name in os.listdir(module_path):
 			if os.path.isdir(os.path.join(module_path, module_name)) and module_name != '__pycache__' and module_name != 'template':
 				module = importlib.import_module(f'ldap_shell.ldap_modules.{module_name}.ldap_module')

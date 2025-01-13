@@ -1,17 +1,30 @@
 from enum import Enum
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field
+from typing import Dict, List, Optional, Annotated
+from pydantic import BaseModel, Field, BeforeValidator
 from ldap3 import Connection
 from ldapdomaindump import domainDumper
 
+def parse_attributes(value) -> List[str]:
+    """Convert input to list of attributes.
+    Supports single attribute or comma-separated list."""
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        return [attr.strip() for attr in value.split(',')] if ',' in value else [value]
+    return []
+
+# Custom types for module arguments
+AttributesList = Annotated[List[str], BeforeValidator(parse_attributes)]
+
 class ArgumentType(str, Enum):
-    USER = "user"
-    GROUP = "group"
-    COMPUTER = "computer"
-    OU = "OU"
-    DIRECTORY = "directory"
-    STRING = "string"
-    INTEGER = "integer"
+    """Types of arguments that can be used in modules"""
+    STRING = 'string'
+    USER = 'user'
+    GROUP = 'group'
+    OU = 'ou'
+    COMPUTER = 'computer'
+    DIRECTORY = 'directory'
+    ATTRIBUTES = 'attributes'  # New type for LDAP attributes
 
 class ModuleArgument:
     def __init__(self, name: str, arg_type: ArgumentType, description: str):
