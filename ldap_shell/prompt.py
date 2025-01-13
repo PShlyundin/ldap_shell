@@ -16,6 +16,7 @@ from ldap_shell.ldap_modules.base_module import ArgumentType
 from prompt_toolkit.document import Document
 from prompt_toolkit.auto_suggest import ConditionalAutoSuggest
 from prompt_toolkit.key_binding import KeyBindings
+from ldap_shell.completers import COMPLETERS
 
 class ShellCompleter(FuzzyWordCompleter):
 	def __init__(self, list_commands, meta):
@@ -36,19 +37,6 @@ class ShellCompleter(FuzzyWordCompleter):
 					)
 
 class ModuleCompleter(Completer):
-	# Список общих LDAP атрибутов
-	COMMON_LDAP_ATTRIBUTES = [
-		'objectSid', 'objectGUID', 'objectClass', 'cn', 'sn', 'givenName', 'displayName',
-		'name', 'sAMAccountName', 'sAMAccountType', 'userPrincipalName', 'userAccountControl',
-		'accountExpires', 'adminCount', 'badPasswordTime', 'badPwdCount', 'codePage',
-		'countryCode', 'description', 'distinguishedName', 'groupType', 'homeDirectory',
-		'homeDrive', 'lastLogoff', 'lastLogon', 'lastLogonTimestamp', 'logonCount',
-		'mail', 'memberOf', 'primaryGroupID', 'profilePath', 'pwdLastSet',
-		'scriptPath', 'servicePrincipalName', 'trustDirection', 'trustType',
-		'whenChanged', 'whenCreated', 'objectCategory', 'dSCorePropagationData',
-		'instanceType', 'uSNChanged', 'uSNCreated'
-	]
-
 	def __init__(self, modules, current_module=None):
 		self.modules = modules
 		self.current_module = current_module
@@ -69,9 +57,9 @@ class ModuleCompleter(Completer):
 					)
 			return
 
-		# Get current module
+		# Get current module and argument
 		module_name = words[0]
-		if module_name not in self.modules:
+		if not any(module_name.startswith(m) for m in self.modules):
 			return
 			
 		module_class = self.modules[module_name].LdapShellModule
@@ -84,77 +72,11 @@ class ModuleCompleter(Completer):
 			
 		current_arg = arguments[current_arg_index]
 		
-		# Если текущий аргумент типа ATTRIBUTES
-		if current_arg.arg_type == ArgumentType.ATTRIBUTES:
+		# Get completer for current argument type
+		completer = COMPLETERS.get(current_arg.arg_type)
+		if completer:
 			current_word = words[-1] if len(words) > 1 else ''
-			
-			# Разбиваем текущий ввод на части по запятой
-			if ',' in current_word:
-				prefix = ','.join(current_word.split(',')[:-1]) + ','
-				current_word = current_word.split(',')[-1].strip()
-			else:
-				prefix = ''
-				
-			# Создаем словарь с описаниями атрибутов
-			meta_dict = {attr: "LDAP attribute" for attr in self.COMMON_LDAP_ATTRIBUTES}
-			
-			# Используем FuzzyWordCompleter для атрибутов
-			completer = FuzzyWordCompleter(
-				words=self.COMMON_LDAP_ATTRIBUTES,
-				meta_dict=meta_dict
-			)
-			
-			# Получаем completion для текущего слова
-			for completion in completer.get_completions(Document(current_word.lower()), complete_event):
-				# Добавляем префикс к completion, если он есть
-				new_text = prefix + completion.text
-				yield Completion(
-					new_text,
-					start_position=-len(current_word) - len(prefix),
-					display=completion.display,
-					display_meta=completion.display_meta
-				)
-			return
-			
-		# If current argument is a directory
-		if current_arg.arg_type == ArgumentType.DIRECTORY:
-			current_word = words[-1] if len(words) > 1 else ''
-			
-			# Get path for autocompletion
-			if os.path.isabs(current_word):
-				current_path = Path(current_word)
-			else:
-				current_path = Path.cwd() / current_word
-				
-			# Get parent directory
-			if current_word.endswith('/'):
-				directory = current_path
-			else:
-				directory = current_path.parent
-				
-			try:
-				# Get list of files and directories
-				for item in directory.iterdir():
-					# Show only directories
-					if item.is_dir():
-						# Form display name
-						display_name = item.name + '/'
-						# Form full path depending on whether
-						# absolute path was entered
-						if os.path.isabs(current_word):
-							completion = str(item.absolute()) + '/'
-						else:
-							completion = str(item.relative_to(Path.cwd())) + '/'
-							
-						if completion.startswith(current_word):
-							yield Completion(
-								completion,
-								start_position=-len(current_word),
-								display=display_name,
-								display_meta='Directory'
-							)
-			except (PermissionError, FileNotFoundError):
-				pass
+			yield from completer.get_completions(document, complete_event, current_word)
 
 class ModuleAutoSuggest(AutoSuggest):
 	def __init__(self, modules):
@@ -213,11 +135,9 @@ class Prompt:
 		self.domain_dumper = domain_dumper
 		self.client = client
 		self.prompt = '# '
-		self.history = FileHistory('.ldap_shell_history')
+		self.history = FileHistory(os.path.expanduser('~/.ldap_shell_history'))
 		self.helper = Helper()
 		self.meta = self.helper.get_meta()
-		for e in self.helper.get_args():
-			self.history.append_string(e)
 		self.identchars = string.ascii_letters + string.digits + '_'
 
 		self.modules = {}
