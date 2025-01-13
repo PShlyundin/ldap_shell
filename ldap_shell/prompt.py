@@ -1,7 +1,7 @@
 from prompt_toolkit.completion import FuzzyWordCompleter, Completion
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, AutoSuggest, Suggestion
-from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.history import FileHistory
 from prompt_toolkit.shortcuts import CompleteStyle
 from prompt_toolkit.formatted_text import HTML
 import string
@@ -16,7 +16,6 @@ from ldap_shell.ldap_modules.base_module import ArgumentType
 from prompt_toolkit.document import Document
 from prompt_toolkit.auto_suggest import ConditionalAutoSuggest
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.keys import Keys
 
 class ShellCompleter(FuzzyWordCompleter):
 	def __init__(self, list_commands, meta):
@@ -169,7 +168,7 @@ class Prompt:
 		self.domain_dumper = domain_dumper
 		self.client = client
 		self.prompt = '# '
-		self.history = InMemoryHistory()
+		self.history = FileHistory('.ldap_shell_history')
 		self.helper = Helper()
 		self.meta = self.helper.get_meta()
 		for e in self.helper.get_args():
@@ -203,7 +202,6 @@ class Prompt:
 			if os.path.isdir(os.path.join(module_path, module_name)) and module_name != '__pycache__' and module_name != 'template':
 				module = importlib.import_module(f'ldap_shell.ldap_modules.{module_name}.ldap_module')
 				self.modules[module_name] = module
-		print(f'Loaded modules: {self.modules}')
 
 	def parseline(self, line):
 		line = line.strip()
