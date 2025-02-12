@@ -16,7 +16,7 @@ from ldap_shell.ldap_modules.base_module import ArgumentType
 from prompt_toolkit.document import Document
 from prompt_toolkit.auto_suggest import ConditionalAutoSuggest
 from prompt_toolkit.key_binding import KeyBindings
-from ldap_shell.completers import COMPLETERS
+from ldap_shell.completers import CompleterFactory
 
 class ShellCompleter(FuzzyWordCompleter):
 	def __init__(self, list_commands, meta):
@@ -37,9 +37,10 @@ class ShellCompleter(FuzzyWordCompleter):
 					)
 
 class ModuleCompleter(Completer):
-	def __init__(self, modules, current_module=None):
+	def __init__(self, modules, domain_dumper, client):
 		self.modules = modules
-		self.current_module = current_module
+		self.domain_dumper = domain_dumper
+		self.client = client
 		
 	def get_completions(self, document, complete_event):
 		text = document.text_before_cursor
@@ -66,17 +67,36 @@ class ModuleCompleter(Completer):
 		arguments = module_class.get_arguments()
 		
 		# Determine which argument needs suggestions
-		current_arg_index = len(words) - 2  # -1 for module, -1 for current word
+		current_arg_index = len(words) - 2
 		if current_arg_index >= len(arguments):
 			return
 			
 		current_arg = arguments[current_arg_index]
 		
-		# Get completer for current argument type
-		completer = COMPLETERS.get(current_arg.arg_type)
+		completer = CompleterFactory.create_completer(
+			current_arg.arg_type,
+			self.client,
+			self.domain_dumper
+		)
+
 		if completer:
-			current_word = words[-1] if len(words) > 1 else ''
+			current_word = document.get_word_before_cursor()
 			yield from completer.get_completions(document, complete_event, current_word)
+
+		# Handle case when arg_type is a list
+#		if isinstance(current_arg.arg_type, list):
+#			arg_type = current_arg.arg_type[0]
+#			completer_class = COMPLETERS.get(arg_type)
+#			completer = completer_class(self.client, self.domain_dumper)
+#			current_word = document.get_word_before_cursor()
+#			yield from completer.get_completions(document, complete_event, current_word)
+#		else:
+#			arg_type = current_arg.arg_type
+#			completer_class = COMPLETERS.get(arg_type)
+#			completer = completer_class()
+#			current_word = document.get_word_before_cursor()
+#			yield from completer.get_completions(document, complete_event, current_word)
+			
 
 class ModuleAutoSuggest(AutoSuggest):
 	def __init__(self, modules):
@@ -143,7 +163,7 @@ class Prompt:
 		self.modules = {}
 		self.load_modules()
 
-		self.completer = ModuleCompleter(self.modules)
+		self.completer = ModuleCompleter(self.modules, domain_dumper=self.domain_dumper, client=self.client)
 
 		# Create key bindings
 		self.kb = KeyBindings()
@@ -152,14 +172,18 @@ class Prompt:
 		def _(event):
 			"""Handle Tab press"""
 			b = event.current_buffer
-			suggestion = b.suggestion
 			
-			# If there is a suggestion - accept it
-			if suggestion and suggestion.text:
-				b.insert_text(suggestion.text)
-			# Otherwise - standard behavior (autocompletion)
-			else:
+			# Если есть завершенные подсказки - переходим по ним
+			if b.complete_state:
 				b.complete_next()
+			# Если нет активного состояния автодополнения - начинаем его
+			else:
+				# Если есть suggestion - применяем его
+				if b.suggestion and b.suggestion.text:
+					b.insert_text(b.suggestion.text)
+				# Иначе запускаем автодополнение
+				else:
+					b.start_completion(select_first=False)
 
 	def load_modules(self):
 		"""Load all modules from ldap_modules directory"""
@@ -269,7 +293,8 @@ class Prompt:
 						AutoSuggestFromHistory(),
 					]), True
 				),
-				key_bindings=self.kb
+				key_bindings=self.kb,
+				complete_while_typing=True
 			)
 		while True:
 			try:

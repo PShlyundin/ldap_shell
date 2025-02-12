@@ -36,9 +36,9 @@ class LdapShellModule(BaseLdapModule):
         """
 
         user: Optional[str] = Field(
-            ..., # This argument is not required
+            ...,  # This argument is required
             description="Target AD user",
-            arg_type=ArgumentType.USER
+            arg_type=[ArgumentType.USER, ArgumentType.GROUP]  # Changed to list of types
         )
     
     def __init__(self, args_dict: dict, 
@@ -66,8 +66,11 @@ class LdapShellModule(BaseLdapModule):
                           attributes=['distinguishedName', 'sAMAccountName', 'name'])
 
         if self.client.result['result'] == 0:
-            self.log.info(f'Found {len(self.client.entries)} groups for user {self.args.user}')
-            for entry in self.client.entries:
-                self.log.info(f'Group: {entry.sAMAccountName}')
+            if len(self.client.entries) == 0:
+                self.log.info('Group: Domain Users')
+            else:
+                self.log.info(f'Found {len(self.client.entries)} groups for user {self.args.user}')
+                for entry in self.client.entries:
+                    self.log.info(f'Group: {entry.sAMAccountName}')
         else:
             self.log.error('Error searching for user groups')

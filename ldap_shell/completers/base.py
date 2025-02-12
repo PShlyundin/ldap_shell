@@ -8,4 +8,4 @@ class BaseArgumentCompleter(ABC):
     @abstractmethod
     def get_completions(self, document: Document, complete_event, current_word: str) -> list[Completion]:
         """Return list of completions for current word"""
-        pass 
+        pass

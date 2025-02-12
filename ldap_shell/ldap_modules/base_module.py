@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, auto
 from typing import Dict, List, Optional, Annotated
 from pydantic import BaseModel, Field, BeforeValidator
 from ldap3 import Connection
@@ -16,15 +16,15 @@ def parse_attributes(value) -> List[str]:
 # Custom types for module arguments
 AttributesList = Annotated[List[str], BeforeValidator(parse_attributes)]
 
-class ArgumentType(str, Enum):
-    """Types of arguments that can be used in modules"""
-    STRING = 'string'
-    USER = 'user'
-    GROUP = 'group'
-    OU = 'ou'
-    COMPUTER = 'computer'
-    DIRECTORY = 'directory'
-    ATTRIBUTES = 'attributes'  # New type for LDAP attributes
+class ArgumentType(Enum):
+    USER = auto()
+    COMPUTER = auto()
+    GROUP = auto()
+    OU = auto()
+    DIRECTORY = auto()
+    STRING = auto()
+    AD_OBJECT = auto()
+    ATTRIBUTES = auto()
 
 class ModuleArgument:
     def __init__(self, name: str, arg_type: ArgumentType, description: str):
