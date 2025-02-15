@@ -8,6 +8,7 @@ from abc import abstractmethod
 class ADObjectCompleter(BaseArgumentCompleter):
     """Completer for AD objects (users, computers, groups, OUs)"""
     highlight_color = None  # Базовый цвет, переопределяется в наследниках
+    attributes = ['sAMAccountName', 'name']  # Базовый набор атрибутов
     
     def __init__(self, ldap_connection, domain_dumper):
         self.ldap = ldap_connection
@@ -57,25 +58,21 @@ class ADObjectCompleter(BaseArgumentCompleter):
 
     def _get_ad_objects(self):
         objects = set()
-        #ldap_filter = '(|'\
-        #             '(objectClass=user)'\
-        #             '(objectClass=computer)'\
-        #             '(objectClass=group)'\
-        #             '(objectClass=organizationalUnit))'
         ldap_filter = self.get_ldap_filter()
         
         try:
             self.ldap.search(
                 self.domain_dumper.root,
                 ldap_filter,
-                attributes=['sAMAccountName', 'name']
+                attributes=self.attributes
             )
             
             for entry in self.ldap.entries:
-                if hasattr(entry, 'sAMAccountName'):
-                    objects.add(str(entry.sAMAccountName))
-                elif hasattr(entry, 'name'):
-                    objects.add(str(entry.name))
+                # Для каждого типа объекта свой приоритет атрибутов
+                if hasattr(entry, self.primary_attribute):
+                    objects.add(str(getattr(entry, self.primary_attribute)))
+                elif hasattr(entry, self.fallback_attribute):
+                    objects.add(str(getattr(entry, self.fallback_attribute)))
             
         except Exception as e:
             self.log.error(f"Error fetching AD objects: {str(e)}")
@@ -90,24 +87,33 @@ class ADObjectCompleter(BaseArgumentCompleter):
 
 class UserCompleter(ADObjectCompleter):
     highlight_color = "ansibrightgreen"  # Яркий зеленый фон для пользователей
+    primary_attribute = 'sAMAccountName'
+    fallback_attribute = 'name'
     
     def get_ldap_filter(self):
         return "(&(objectCategory=person)(objectClass=user))"
 
 class ComputerCompleter(ADObjectCompleter):
     highlight_color = "ansibrightred"  # Яркий красный фон для компьютеров
+    primary_attribute = 'sAMAccountName'
+    fallback_attribute = 'name'
     
     def get_ldap_filter(self):
         return "(objectClass=computer)"
 
 class GroupCompleter(ADObjectCompleter):
     highlight_color = "ansibrightyellow"  # Яркий желтый фон для групп
+    primary_attribute = 'sAMAccountName'
+    fallback_attribute = 'name'
     
     def get_ldap_filter(self):
         return "(objectClass=group)"
 
 class OUCompleter(ADObjectCompleter):
     highlight_color = "ansibrightmagenta"  # Яркий фиолетовый фон для OU
+    primary_attribute = 'name'
+    fallback_attribute = 'distinguishedName'
+    attributes = ['name', 'distinguishedName']  # Переопределяем атрибуты для OU
     
     def get_ldap_filter(self):
         return "(objectClass=organizationalUnit)"

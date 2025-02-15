@@ -9,33 +9,36 @@ import re
 
 class LdapShellModule(BaseLdapModule):
     """Module for searching AD objects"""
-    
-    class ModuleArgs(BaseModel):
-        """Model for describing module arguments.
-        
-        Field() to configure each argument with:
-           - default value (None for optional args)
-           - description - explains the argument's purpose
-           - arg_type - one of ArgumentType enum values:
-             * USER - for AD user objects
-             * COMPUTER - for AD computers  
-             * DIRECTORY - for filesystem paths
-             * STRING - for text input
-             more types in ../base_module.py
-             
-        Example:
-            class ModuleArgs(BaseModel):
-                user: str = Field(
-                    description="Target AD user",
-                    arg_type=ArgumentType.USER
-                )
-                group: Optional[str] = Field(
-                    None, # This argument is not required
-                    description="Optional AD group", 
-                    arg_type=ArgumentType.GROUP
-                )
-        """
 
+    help_text = "Search AD objects"
+    examples_text = """
+    ## Search user with all attributes:
+    `search "(sAMAccountName=john.doe)"`
+    ``` 
+        objectClass          : top
+                            person
+                            organizationalPerson
+                            user
+        pwdLastSet           : 2024-07-22 18:09:40+0000
+        ...
+        objectSid            : S-1-5-21-170099002-3324421148-3202989712-2994
+        whenCreated          : 2024-07-22 18:09:40+0000
+        distinguishedName    : CN=john.doe,CN=Users,DC=roasting,DC=lab
+        sAMAccountName       : john.doe
+        ...
+        sn                   : john.doe
+    ```
+    ## Search user with specific attributes:
+    `search "(sAMAccountName=john.doe)" sAMAccountName,objectSid,name`
+    ``` 
+        objectSid     : S-1-5-21-170099002-3324421148-3202989712-2994
+        name          : john.doe
+        sAMAccountName: john.doe
+    ```
+    """
+    module_type = "Get Info"
+
+    class ModuleArgs(BaseModel):
         ldap_filter: str = Field(
             ..., # This argument is required
             description="LDAP filter",
@@ -112,8 +115,11 @@ class LdapShellModule(BaseLdapModule):
         
         if not attributes:
             attributes = ['*']
-        
-        self.client.search(self.domain_dumper.root, search_query, attributes=attributes)
+        try:
+            self.client.search(self.domain_dumper.root, search_query, attributes=attributes)
+        except Exception as e:
+            self.log.error(f"Error searching: {e}")
+            return
         
         if len(self.client.entries) == 0:
             self.log.info('No results found')

@@ -17,6 +17,7 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.auto_suggest import ConditionalAutoSuggest
 from prompt_toolkit.key_binding import KeyBindings
 from ldap_shell.completers import CompleterFactory
+import shlex
 
 class ShellCompleter(FuzzyWordCompleter):
 	def __init__(self, list_commands, meta):
@@ -82,20 +83,6 @@ class ModuleCompleter(Completer):
 		if completer:
 			current_word = document.get_word_before_cursor()
 			yield from completer.get_completions(document, complete_event, current_word)
-
-		# Handle case when arg_type is a list
-#		if isinstance(current_arg.arg_type, list):
-#			arg_type = current_arg.arg_type[0]
-#			completer_class = COMPLETERS.get(arg_type)
-#			completer = completer_class(self.client, self.domain_dumper)
-#			current_word = document.get_word_before_cursor()
-#			yield from completer.get_completions(document, complete_event, current_word)
-#		else:
-#			arg_type = current_arg.arg_type
-#			completer_class = COMPLETERS.get(arg_type)
-#			completer = completer_class()
-#			current_word = document.get_word_before_cursor()
-#			yield from completer.get_completions(document, complete_event, current_word)
 			
 
 class ModuleAutoSuggest(AutoSuggest):
@@ -168,36 +155,96 @@ class Prompt:
 		# Create key bindings
 		self.kb = KeyBindings()
 		
+		@self.kb.add('enter')
+		def _(event):
+			"""Handle Enter press"""
+			b = event.current_buffer
+
+			# Если есть активное состояние автодополнения
+			if b.complete_state and b.complete_state.current_completion:
+				completion = b.complete_state.current_completion
+
+				# Получаем список команд
+				available_commands = self.list_modules()
+
+				# Если completion - это команда
+				if completion.text in available_commands:
+					# Удаляем весь текст
+					b.delete(len(b.document.text_after_cursor))  # сначала после курсора
+					b.delete_before_cursor(len(b.document.text_before_cursor))  # затем до курсора
+					# Вставляем команду
+					b.insert_text(completion.text + ' ')
+				else:
+					# Для аргументов: находим последний пробел или запятую перед курсором
+					text = b.document.text
+					cursor_position = b.document.cursor_position
+					text_before_cursor = text[:cursor_position]
+
+					# Находим позицию последнего разделителя (пробел или запятая)
+					if text_before_cursor.find('"') %2 == 1:
+						quoted_words = shlex.split(text_before_cursor+'"')
+					else:
+						quoted_words = shlex.split(text_before_cursor)
+
+					last_word = quoted_words[-1]
+
+					if ',' in last_word:
+						del_word = last_word.split(',')[-1]
+					elif ' ' in last_word:
+						del_word = f'"{last_word}"'
+					else:
+						del_word = last_word
+
+					last_separator = len(text_before_cursor) - len(del_word)
+
+					if last_separator >= 0:
+						# Удаляем текст от последнего разделителя до курсора
+						chars_to_delete = cursor_position - (last_separator)
+						if chars_to_delete > 0:
+							b.delete_before_cursor(chars_to_delete)
+					else:
+						# Если разделитель не найден, удаляем весь текст до курсора
+						b.delete_before_cursor(len(text_before_cursor))
+
+					b.insert_text(completion.text)
+				
+				# Очищаем состояние автодополнения
+				b.complete_state = None
+				return
+
+			# Если нет активного автодополнения - выполняем команду
+			event.current_buffer.validate_and_handle()	
+
 		@self.kb.add('tab')
 		def _(event):
 			"""Handle Tab press"""
 			b = event.current_buffer
 			
-			# Если есть завершенные подсказки - переходим по ним
 			if b.complete_state:
 				b.complete_next()
-			# Если нет активного состояния автодополнения - начинаем его
 			else:
-				# Если есть suggestion - применяем его
 				if b.suggestion and b.suggestion.text:
 					b.insert_text(b.suggestion.text)
-				# Иначе запускаем автодополнение
 				else:
 					b.start_completion(select_first=False)
+
+	@staticmethod
+	def list_modules() -> list[str]:
+		module_path = os.path.join(os.path.dirname(__file__), 'ldap_modules')
+		modules = os.listdir(module_path)
+		modules_list = []
+		for module in modules:
+			if os.path.isdir(os.path.join(module_path, module)) and not '__' in module and module != 'template':
+				modules_list.append(module)
+		return modules_list
 
 	def load_modules(self):
 		"""Load all modules from ldap_modules directory"""
 		self.modules = {}
-		module_path = os.path.join(os.path.dirname(__file__), 'ldap_modules')
-		
-		# Debug logging
-		print(f"Looking for modules in: {module_path}")
-		print(f"Available directories: {os.listdir(module_path)}")
-		
-		for module_name in os.listdir(module_path):
-			if os.path.isdir(os.path.join(module_path, module_name)) and module_name != '__pycache__' and module_name != 'template':
-				module = importlib.import_module(f'ldap_shell.ldap_modules.{module_name}.ldap_module')
-				self.modules[module_name] = module
+		modules_list = self.list_modules()
+		for module_name in modules_list:
+			module = importlib.import_module(f'ldap_shell.ldap_modules.{module_name}.ldap_module')
+			self.modules[module_name] = module
 
 	def parseline(self, line):
 		line = line.strip()
@@ -225,14 +272,20 @@ class Prompt:
 
 	def _parse_arg_string(self, module_name: str, arg_string: str) -> dict:
 		args_dict = {}
-		args = arg_string.strip().split()
+		
+		# Используем shlex для корректного разбора строки с учетом кавычек
+		try:
+			args = shlex.split(arg_string)
+		except ValueError as e:
+			# Если есть незакрытые кавычки, пытаемся обработать как есть
+			print(f"Warning: {e}")
+			args = arg_string.strip().split()
 		
 		for i, value in enumerate(args):
 			if i >= len(self.modules[module_name].LdapShellModule.get_arguments()):
 				break
 			arg_name = self.modules[module_name].LdapShellModule.get_arguments()[i].name
 			args_dict[arg_name] = value
-		
 		return args_dict
 
 	def parse_module_args(self, module_name: str, arg_string: str) -> dict:
@@ -244,21 +297,21 @@ class Prompt:
 
 	def execute_module(self, module_name: str, args_dict: dict):
 		"""Execute module with given arguments"""
-		try:	
-			module = self.modules[module_name].LdapShellModule(
+		#try:	
+		module = self.modules[module_name].LdapShellModule(
 				args_dict,
 				self.domain_dumper,
 				self.client,
 				logging.getLogger('ldap-shell.shell')
 			)
-			return module()
-		except ValidationError as e:
-			error_messages = []
-			for error in e.errors():
-				field = error["loc"][0]
-				message = error["msg"]
-				error_messages.append(f"{field}: {message}")
-			raise ValueError("\n".join(error_messages))
+		return module()
+		#except ValidationError as e:
+		#	error_messages = []
+		#	for error in e.errors():
+		#		field = error["loc"][0]
+		#		message = error["msg"]
+		#		error_messages.append(f"{field}: {message}")
+		#	raise ValueError("\n".join(error_messages))
 
 	def onecmd(self, line):
 		cmd, arg_string, _ = self.parseline(line)

@@ -2,43 +2,28 @@ import logging
 from ldap3 import Connection    
 from ldapdomaindump import domainDumper
 from pydantic import BaseModel, Field
-from typing import Optional, List
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ModuleArgument, ArgumentType
+from typing import Optional
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
 from ldap3.utils.conv import escape_filter_chars
 
 class LdapShellModule(BaseLdapModule):
     """Module for retrieves all groups this user is a member of"""
-    
-    class ModuleArgs(BaseModel):
-        """Model for describing module arguments.
-        
-        Field() to configure each argument with:
-           - default value (None for optional args)
-           - description - explains the argument's purpose
-           - arg_type - one of ArgumentType enum values:
-             * USER - for AD user objects
-             * COMPUTER - for AD computers  
-             * DIRECTORY - for filesystem paths
-             * STRING - for text input
-             more types in ../base_module.py
-             
-        Example:
-            class ModuleArgs(BaseModel):
-                user: str = Field(
-                    description="Target AD user",
-                    arg_type=ArgumentType.USER
-                )
-                group: Optional[str] = Field(
-                    None, # This argument is not required
-                    description="Optional AD group", 
-                    arg_type=ArgumentType.GROUP
-                )
-        """
 
+    help_text = "Retrieves all groups this user is a member of"
+    examples_text = """
+    Get groups for user 'testuser'
+    `get_user_groups testuser`
+    Get groups for group 'testgroup'
+    `get_user_groups testgroup`
+    Get groups for computer 'testcomputer'
+    `get_user_groups testcomputer`
+    """
+    module_type = "Get Info"
+    class ModuleArgs(BaseModel):
         user: Optional[str] = Field(
             ...,  # This argument is required
             description="Target AD user",
-            arg_type=[ArgumentType.USER, ArgumentType.GROUP]  # Changed to list of types
+            arg_type=[ArgumentType.USER, ArgumentType.GROUP, ArgumentType.COMPUTER]  # Changed to list of types
         )
     
     def __init__(self, args_dict: dict, 
@@ -67,7 +52,10 @@ class LdapShellModule(BaseLdapModule):
 
         if self.client.result['result'] == 0:
             if len(self.client.entries) == 0:
-                self.log.info('Group: Domain Users')
+                if self.args.user.endswith('$'):
+                    self.log.info('Group: Domain Computers')
+                else:
+                    self.log.info('Group: Domain Users')
             else:
                 self.log.info(f'Found {len(self.client.entries)} groups for user {self.args.user}')
                 for entry in self.client.entries:

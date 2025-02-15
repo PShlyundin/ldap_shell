@@ -6,34 +6,18 @@ from typing import Optional, List
 from ldap_shell.ldap_modules.base_module import BaseLdapModule, ModuleArgument, ArgumentType
 
 class LdapShellModule(BaseLdapModule):
-    """Module for dumping information from AD"""
+    """Module for dumping information from AD. This command will perform the same action as running the ldapdomaindump tool"""
     
-    class ModuleArgs(BaseModel):
-        """Model for describing module arguments.
-        
-        Field() to configure each argument with:
-           - default value (None for optional args)
-           - description - explains the argument's purpose
-           - arg_type - one of ArgumentType enum values:
-             * USER - for AD user objects
-             * COMPUTER - for AD computers  
-             * DIRECTORY - for filesystem paths
-             * STRING - for text input
-             more types in ../base_module.py
-             
-        Example:
-            class ModuleArgs(BaseModel):
-                user: str = Field(
-                    description="Target AD user",
-                    arg_type=ArgumentType.USER
-                )
-                group: Optional[str] = Field(
-                    None, # This argument is not required
-                    description="Optional AD group", 
-                    arg_type=ArgumentType.GROUP
-                )
-        """
+    help_text = "Dumps the domain"
+    examples_text = """
+    Dump domain information to current directory
+    `dump`
+    Dump domain information to /tmp/
+    `dump -o /tmp/`
+    """
+    module_type = "Get Info"
 
+    class ModuleArgs(BaseModel):
         output_dir: Optional[str] = Field(
             None, # This argument is not required
             description="Directory to save dump files",
