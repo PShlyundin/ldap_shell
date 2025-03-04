@@ -1,4 +1,4 @@
-from prompt_toolkit.completion import FuzzyWordCompleter, Completion
+from prompt_toolkit.completion import Completion
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, AutoSuggest, Suggestion
 from prompt_toolkit.history import FileHistory
@@ -9,10 +9,7 @@ from ldap_shell.helper import Helper
 import os
 import logging
 from prompt_toolkit.completion import Completer
-from pathlib import Path
 from ldap_shell.ldap_modules.base_module import ArgumentType
-from prompt_toolkit.document import Document
-from prompt_toolkit.auto_suggest import ConditionalAutoSuggest
 from prompt_toolkit.key_binding import KeyBindings
 from ldap_shell.completers import CompleterFactory
 from ldap_shell.utils.module_loader import ModuleLoader
@@ -48,21 +45,82 @@ class ModuleCompleter(Completer):
 		arguments = module_class.get_arguments()
 		
 		# Determine which argument needs suggestions
-		current_arg_index = len(words) - 2
+		if len(words) == 1 and text.endswith(' '):
+			current_arg_index = len(words) - 1	
+		else:
+			current_arg_index = len(words) - 2
 		if current_arg_index >= len(arguments):
 			return
-			
-		current_arg = arguments[current_arg_index]
 		
+		current_arg = arguments[current_arg_index]
 		completer = CompleterFactory.create_completer(
 			current_arg.arg_type,
 			self.client,
 			self.domain_dumper
 		)
-
 		if completer:
 			current_word = document.get_word_before_cursor()
 			yield from completer.get_completions(document, complete_event, current_word)
+
+class ModuleSuggester(AutoSuggest):
+	"""Предлагает подсказки из истории и аргументов модуля"""
+	
+	def __init__(self, modules, history):
+		self.modules = modules
+		self.history = history  # Должен быть prompt_toolkit.history.History
+		
+	def get_suggestion(self, buffer, document) -> Suggestion | None:
+		text = document.text_before_cursor
+		
+		# 1. Проверяем историю
+		history_suggestion = self._get_history_suggestion(text)
+		if history_suggestion:
+			return history_suggestion
+			
+		# 2. Предлагаем аргументы модуля
+		return self._get_module_suggestion(text)
+	
+	def _get_history_suggestion(self, text: str) -> Suggestion | None:
+		"""Ищем последний использованный аргумент для текущей команды"""
+		if not text.strip():
+			return None
+
+		# Получаем базовую команду (первое слово)
+		base_command = text.split()[0]
+		
+		# Ищем в истории последнюю полную команду с этим базовым именем
+		last_full_command = None
+		for entry in reversed(list(self.history.get_strings())):
+			if entry.startswith(base_command + ' '):
+				last_full_command = entry
+				break
+		
+		if not last_full_command:
+			return None
+		
+		# Сравниваем текущий ввод с исторической записью
+		if last_full_command.startswith(text):
+			remaining_part = last_full_command[len(text):]
+			return Suggestion(remaining_part)
+		
+		return None
+	
+	def _get_module_suggestion(self, text: str) -> Suggestion | None:
+		"""Стандартная подсказка аргументов модуля"""
+		words = text.split()
+		if len(words) == 0 or words[0] not in self.modules:
+			return None
+			
+		module = self.modules[words[0]]
+		args = module.get_arguments()
+		current_arg_index = len(words) - 1
+		
+		if current_arg_index >= len(args):
+			return None
+			
+		current_arg = args[current_arg_index]
+		suggestion = f"{current_arg.name} " if current_arg.required else f"[{current_arg.name}] "
+		return Suggestion(suggestion)
 
 class Prompt:
 	def __init__(self, domain_dumper, client):
@@ -77,6 +135,7 @@ class Prompt:
 		self.modules = ModuleLoader.load_modules()
 
 		self.completer = ModuleCompleter(self.modules, domain_dumper=self.domain_dumper, client=self.client)
+		self.suggester = ModuleSuggester(self.modules, self.history)
 
 		# Create key bindings
 		self.kb = KeyBindings()
@@ -108,7 +167,6 @@ class Prompt:
 
 					# Находим позицию последнего разделителя (пробел или запятая)
 					if text_before_cursor.count('"') % 2 == 1:
-						print(f'\n\n\ntext_before_cursor: {text_before_cursor}\n\n\n')
 						quoted_words = shlex.split(text_before_cursor+'"')
 					else:
 						quoted_words = shlex.split(text_before_cursor)
@@ -150,10 +208,7 @@ class Prompt:
 			if b.complete_state:
 				b.complete_next()
 			else:
-				if b.suggestion and b.suggestion.text:
-					b.insert_text(b.suggestion.text)
-				else:
-					b.start_completion(select_first=False)
+				b.start_completion(select_first=False)
 
 	def parseline(self, line):
 		line = line.strip()
@@ -242,7 +297,7 @@ class Prompt:
 				completer=self.completer,
 				complete_style=CompleteStyle.MULTI_COLUMN,
 				history=self.history,
-				auto_suggest=AutoSuggestFromHistory(),
+				auto_suggest=self.suggester, #AutoSuggestFromHistory(),
 				key_bindings=self.kb,
 				complete_while_typing=True
 			)

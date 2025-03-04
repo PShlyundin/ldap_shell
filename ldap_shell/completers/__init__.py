@@ -40,14 +40,12 @@ class CompleterFactory:
                     completers.append(completer_class(client, domain_dumper))
                 else:
                     completers.append(completer_class())
-                    
         if not completers:
             return None
             
         # Если только один комплитер, возвращаем его
-        if len(completers) == 1:
-            return completers[0]
-            
+        #if len(completers) == 1:
+        #    return completers[0]
         # Если несколько комплитеров, оборачиваем их в MultiCompleter
         return MultiCompleter(completers)
 
@@ -66,7 +64,6 @@ class MultiCompleter(BaseArgumentCompleter):
             completions = list(completer.get_completions(document, complete_event, current_word))
             if completions:  # Добавляем только если есть результаты
                 all_completions[completer] = completions
-                
         if not all_completions:
             return
             
@@ -74,7 +71,6 @@ class MultiCompleter(BaseArgumentCompleter):
         num_completers = len(all_completions)
         base_per_completer = max(1, self.max_total_suggestions // num_completers)
         remaining = self.max_total_suggestions - (base_per_completer * num_completers)
-        
         # Распределяем подсказки
         for completer, completions in all_completions.items():
             # Если это последний комплитер, отдаем ему оставшиеся слоты
