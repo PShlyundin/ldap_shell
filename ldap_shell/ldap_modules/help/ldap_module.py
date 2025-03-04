@@ -124,7 +124,7 @@ class LdapShellModule(BaseLdapModule):
                 for arg in module_class.get_arguments():
                     name = arg.name
                     required = arg.required
-                    arg_types = '|'.join([arg_type.name for arg_type in arg.arg_type])
+                    arg_types = '|'.join([arg_type.name for arg_type in arg.arg_type]) if isinstance(arg.arg_type, list) else arg.arg_type.name
                     description = arg.description
                     help_md += f"""    ### {name}
     - Description: {description}

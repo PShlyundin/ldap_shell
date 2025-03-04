@@ -39,7 +39,7 @@ class CommandCompleter(BaseArgumentCompleter):
                 Completion(
                     module, 
                     start_position=-len(current_word),
-                    display_meta=f'Module: {module} (match: {ratio:.2f})'
+                    display_meta=f'{ModuleLoader.load_module(module).__doc__}'
                 )
             )
             

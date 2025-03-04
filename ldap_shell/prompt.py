@@ -29,7 +29,7 @@ class ModuleCompleter(Completer):
 		words = text.split()
 		
 		# If this is the first word - suggest modules
-		if len(words) <= 1:
+		if len(words) <= 1 and not text.endswith(' '):
 			word = words[0] if words else ''
 			for module_name in self.modules:
 				if module_name.startswith(word):
@@ -94,7 +94,7 @@ class Prompt:
 				available_commands = ModuleLoader.list_modules()
 
 				# Если completion - это команда
-				if completion.text in available_commands:
+				if completion.text in available_commands and not ' ' in b.document.text_before_cursor:
 					# Удаляем весь текст
 					b.delete(len(b.document.text_after_cursor))  # сначала после курсора
 					b.delete_before_cursor(len(b.document.text_before_cursor))  # затем до курсора
