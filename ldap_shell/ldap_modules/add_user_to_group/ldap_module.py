@@ -6,6 +6,7 @@ from typing import Optional
 from ldap_shell.prompt import Prompt
 from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
 import ldap3
+from ldap_shell.utils.ldap_utils import LdapUtils
 
 class LdapShellModule(BaseLdapModule):
     """Module for adding a user to a group"""
@@ -39,24 +40,13 @@ class LdapShellModule(BaseLdapModule):
         self.client = client
         self.log = log or logging.getLogger('ldap-shell.shell')
 
-    def get_dn(self, name: str) -> Optional[str]:
-        """Get DN by user/group name"""
-        self.client.search(
-            self.domain_dumper.root,
-            f'(sAMAccountName={name})',
-            attributes=['distinguishedName']
-        )
-        if self.client.entries:
-            return self.client.entries[0].entry_dn
-        return None
-
     def __call__(self):
-        user_dn = self.get_dn(self.args.user)
+        user_dn = LdapUtils.get_dn(self.client, self.domain_dumper, self.args.user)
         if not user_dn:
             self.log.error(f'User not found: {self.args.user}')
             return
 
-        group_dn = self.get_dn(self.args.group)
+        group_dn = LdapUtils.get_dn(self.client, self.domain_dumper, self.args.group)
         if not group_dn:
             self.log.error(f'Group not found: {self.args.group}')
             return
@@ -78,5 +68,3 @@ class LdapShellModule(BaseLdapModule):
                 self.log.warning('You modified your own group membership. Re-login may be required.')
         else:
             self.log.error('Failed to add user: %s', self.client.result['description'])
-
-        

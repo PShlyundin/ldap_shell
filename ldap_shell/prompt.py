@@ -1,9 +1,8 @@
 from prompt_toolkit.completion import Completion
 from prompt_toolkit import PromptSession
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, AutoSuggest, Suggestion
+from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.shortcuts import CompleteStyle
-from prompt_toolkit.formatted_text import HTML
 import string
 from ldap_shell.helper import Helper
 import os
