@@ -7,16 +7,30 @@ from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
 from ldap3.utils.conv import escape_filter_chars
 
 class LdapShellModule(BaseLdapModule):
-    """Module for retrieves all groups this user is a member of"""
+    """Module for retrieves all groups recursively this user is a member of"""
 
-    help_text = "Retrieves all groups this user is a member of"
+    help_text = "Retrieves all groups recursively this user is a member of"
     examples_text = """
     Get groups for user 'testuser'
     `get_user_groups testuser`
-    Get groups for group 'testgroup'
-    `get_user_groups testgroup`
-    Get groups for computer 'testcomputer'
-    `get_user_groups testcomputer`
+    ```
+    [INFO] Group: Domain Users
+    ```
+    Get groups for group "Remote Management Users"
+    `get_user_groups "Remote Management Users"`
+    ```
+    [INFO] Found 5 groups
+    [INFO] Group: Administrators
+    [INFO] Group: Schema Admins
+    [INFO] Group: Domain Admins
+    [INFO] Group: Denied RODC Password Replication Group
+    [INFO] Group: group1
+    ```
+    Get groups for computer 'srv01'
+    `get_user_groups srv01$`
+    ```
+    [INFO] Group: Domain Computers
+    ```
     """
     module_type = "Get Info"
     class ModuleArgs(BaseModel):
@@ -25,7 +39,7 @@ class LdapShellModule(BaseLdapModule):
             description="Target AD user",
             arg_type=[ArgumentType.USER, ArgumentType.GROUP, ArgumentType.COMPUTER]  # Changed to list of types
         )
-    
+
     def __init__(self, args_dict: dict, 
                  domain_dumper: domainDumper, 
                  client: Connection,
@@ -57,7 +71,7 @@ class LdapShellModule(BaseLdapModule):
                 else:
                     self.log.info('Group: Domain Users')
             else:
-                self.log.info(f'Found {len(self.client.entries)} groups for user {self.args.user}')
+                self.log.info(f'Found {len(self.client.entries)} groups {self.args.user}')
                 for entry in self.client.entries:
                     self.log.info(f'Group: {entry.sAMAccountName}')
         else:

@@ -17,21 +17,22 @@ def parse_attributes(value) -> List[str]:
 AttributesList = Annotated[List[str], BeforeValidator(parse_attributes)]
 
 class ArgumentType(Enum):
-    USER = auto()
-    COMPUTER = auto()
-    GROUP = auto()
-    OU = auto()
-    DIRECTORY = auto()
-    STRING = auto()
-    AD_OBJECT = auto()
-    ATTRIBUTES = auto()
+    USER = 'user'
+    COMPUTER = 'computer'
+    GROUP = 'group'
+    OU = 'ou'
+    DIRECTORY = 'directory'
+    STRING = 'string'
+    AD_OBJECT = 'ad_object'
+    ATTRIBUTES = 'attributes'
+    COMMAND = 'command'
 
 class ModuleArgument:
-    def __init__(self, name: str, arg_type: ArgumentType, description: str):
+    def __init__(self, name: str, arg_type: ArgumentType, description: str, required: bool):
         self.name = name
         self.arg_type = arg_type
         self.description = description
-
+        self.required = required
 class BaseLdapModule:
     """Base class for all LDAP modules"""
     
@@ -45,11 +46,23 @@ class BaseLdapModule:
         }
 
     @classmethod
+    def get_args_required(cls) -> List[str]:
+        """Returns a list of required arguments"""
+        required_args = []
+        for name, field in cls.ModuleArgs.model_fields.items():
+            if field.is_required():
+                required_args.append(f'{name}')
+            else:
+                required_args.append(f'[{name}]')
+        return required_args
+
+    @classmethod
     def get_arguments(cls) -> List[ModuleArgument]:
         """Returns module arguments from ModuleArgs class"""
         arguments = []
         for name, field in cls.ModuleArgs.model_fields.items():
             arg_type = field.json_schema_extra.get('arg_type', ArgumentType.STRING) if field.json_schema_extra else ArgumentType.STRING
+            required = field.is_required()
             description = field.description or ""
-            arguments.append(ModuleArgument(name, arg_type, description))
+            arguments.append(ModuleArgument(name, arg_type, description, required))
         return arguments

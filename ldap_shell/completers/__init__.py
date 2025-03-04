@@ -5,6 +5,7 @@ from .ad_object_completer import ADObjectCompleter, UserCompleter, ComputerCompl
 from ..ldap_modules.base_module import ArgumentType
 from .directory import DirectoryCompleter
 from .attributes import AttributesCompleter
+from .command import CommandCompleter
 from collections import defaultdict
 
 COMPLETERS = {
@@ -14,6 +15,7 @@ COMPLETERS = {
         ArgumentType.GROUP: GroupCompleter,
         ArgumentType.OU: OUCompleter,
         ArgumentType.ATTRIBUTES: AttributesCompleter,
+        ArgumentType.COMMAND: CommandCompleter,
     }
 
 class CompleterFactory:

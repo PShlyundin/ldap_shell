@@ -7,9 +7,7 @@ from prompt_toolkit.formatted_text import HTML
 import string
 from ldap_shell.helper import Helper
 import os
-import importlib
 import logging
-from pydantic import ValidationError
 from prompt_toolkit.completion import Completer
 from pathlib import Path
 from ldap_shell.ldap_modules.base_module import ArgumentType
@@ -17,25 +15,8 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.auto_suggest import ConditionalAutoSuggest
 from prompt_toolkit.key_binding import KeyBindings
 from ldap_shell.completers import CompleterFactory
+from ldap_shell.utils.module_loader import ModuleLoader
 import shlex
-
-class ShellCompleter(FuzzyWordCompleter):
-	def __init__(self, list_commands, meta):
-		self.list_commands = list_commands
-		self.meta = meta
-
-	def get_completions(self, document, complete_event):
-		word = document.text_before_cursor
-		if not " " in word:
-			for command in self.list_commands:
-				if command.startswith(word):
-					display = HTML("%s<b></b> ") % (command)
-					yield Completion(
-						command,
-						start_position=-len(word),
-						display=display,
-						display_meta=self.meta.get(command),
-					)
 
 class ModuleCompleter(Completer):
 	def __init__(self, modules, domain_dumper, client):
@@ -55,16 +36,15 @@ class ModuleCompleter(Completer):
 					yield Completion(
 						module_name,
 						start_position=-len(word),
-						display_meta=self.modules[module_name].LdapShellModule.__doc__
+						display_meta=self.modules[module_name].__doc__
 					)
 			return
-
 		# Get current module and argument
 		module_name = words[0]
 		if not any(module_name.startswith(m) for m in self.modules):
 			return
 			
-		module_class = self.modules[module_name].LdapShellModule
+		module_class = self.modules[module_name]
 		arguments = module_class.get_arguments()
 		
 		# Determine which argument needs suggestions
@@ -83,59 +63,6 @@ class ModuleCompleter(Completer):
 		if completer:
 			current_word = document.get_word_before_cursor()
 			yield from completer.get_completions(document, complete_event, current_word)
-			
-
-class ModuleAutoSuggest(AutoSuggest):
-	def __init__(self, modules):
-		self.modules = modules
-
-	def get_suggestion(self, buffer, document: Document):
-		text = document.text
-		words = text.split()
-
-		if not words:
-			return None
-
-		module_name = words[0]
-		if module_name not in self.modules:
-			return None
-
-		module_class = self.modules[module_name].LdapShellModule
-		arguments = module_class.get_arguments()
-		
-		# Determine current argument
-		current_arg_index = len(words) - 1
-		if current_arg_index >= len(arguments):
-			return None
-
-		current_arg = arguments[current_arg_index]
-		
-		# If current argument is a directory
-		if current_arg.arg_type == ArgumentType.DIRECTORY:
-			current_word = words[-1] if len(words) > 1 else ''
-			
-			# If user has already started typing path, don't suggest
-			if current_word:
-				return None
-				
-			# Suggest current directory
-			cwd = str(Path.cwd()) + '/'
-			# If last character is space, add suggestion
-			if text.endswith(' '):
-				return Suggestion(cwd)
-			
-		return None
-
-class MultiAutoSuggest(AutoSuggest):
-	def __init__(self, suggesters):
-		self.suggesters = suggesters
-
-	def get_suggestion(self, buffer, document):
-		for suggester in self.suggesters:
-			suggestion = suggester.get_suggestion(buffer, document)
-			if suggestion:
-				return suggestion
-		return None
 
 class Prompt:
 	def __init__(self, domain_dumper, client):
@@ -147,8 +74,7 @@ class Prompt:
 		self.meta = self.helper.get_meta()
 		self.identchars = string.ascii_letters + string.digits + '_'
 
-		self.modules = {}
-		self.load_modules()
+		self.modules = ModuleLoader.load_modules()
 
 		self.completer = ModuleCompleter(self.modules, domain_dumper=self.domain_dumper, client=self.client)
 
@@ -165,7 +91,7 @@ class Prompt:
 				completion = b.complete_state.current_completion
 
 				# Получаем список команд
-				available_commands = self.list_modules()
+				available_commands = ModuleLoader.list_modules()
 
 				# Если completion - это команда
 				if completion.text in available_commands:
@@ -181,7 +107,8 @@ class Prompt:
 					text_before_cursor = text[:cursor_position]
 
 					# Находим позицию последнего разделителя (пробел или запятая)
-					if text_before_cursor.find('"') %2 == 1:
+					if text_before_cursor.count('"') % 2 == 1:
+						print(f'\n\n\ntext_before_cursor: {text_before_cursor}\n\n\n')
 						quoted_words = shlex.split(text_before_cursor+'"')
 					else:
 						quoted_words = shlex.split(text_before_cursor)
@@ -228,24 +155,6 @@ class Prompt:
 				else:
 					b.start_completion(select_first=False)
 
-	@staticmethod
-	def list_modules() -> list[str]:
-		module_path = os.path.join(os.path.dirname(__file__), 'ldap_modules')
-		modules = os.listdir(module_path)
-		modules_list = []
-		for module in modules:
-			if os.path.isdir(os.path.join(module_path, module)) and not '__' in module and module != 'template':
-				modules_list.append(module)
-		return modules_list
-
-	def load_modules(self):
-		"""Load all modules from ldap_modules directory"""
-		self.modules = {}
-		modules_list = self.list_modules()
-		for module_name in modules_list:
-			module = importlib.import_module(f'ldap_shell.ldap_modules.{module_name}.ldap_module')
-			self.modules[module_name] = module
-
 	def parseline(self, line):
 		line = line.strip()
 		if not line:
@@ -282,9 +191,9 @@ class Prompt:
 			args = arg_string.strip().split()
 		
 		for i, value in enumerate(args):
-			if i >= len(self.modules[module_name].LdapShellModule.get_arguments()):
+			if i >= len(self.modules[module_name].get_arguments()):
 				break
-			arg_name = self.modules[module_name].LdapShellModule.get_arguments()[i].name
+			arg_name = self.modules[module_name].get_arguments()[i].name
 			args_dict[arg_name] = value
 		return args_dict
 
@@ -298,20 +207,13 @@ class Prompt:
 	def execute_module(self, module_name: str, args_dict: dict):
 		"""Execute module with given arguments"""
 		#try:	
-		module = self.modules[module_name].LdapShellModule(
+		module = self.modules[module_name](
 				args_dict,
 				self.domain_dumper,
 				self.client,
-				logging.getLogger('ldap-shell.shell')
+				logging.getLogger('ldap-shell')
 			)
 		return module()
-		#except ValidationError as e:
-		#	error_messages = []
-		#	for error in e.errors():
-		#		field = error["loc"][0]
-		#		message = error["msg"]
-		#		error_messages.append(f"{field}: {message}")
-		#	raise ValueError("\n".join(error_messages))
 
 	def onecmd(self, line):
 		cmd, arg_string, _ = self.parseline(line)
@@ -340,12 +242,7 @@ class Prompt:
 				completer=self.completer,
 				complete_style=CompleteStyle.MULTI_COLUMN,
 				history=self.history,
-				auto_suggest=ConditionalAutoSuggest(
-					MultiAutoSuggest([
-						ModuleAutoSuggest(self.modules),
-						AutoSuggestFromHistory(),
-					]), True
-				),
+				auto_suggest=AutoSuggestFromHistory(),
 				key_bindings=self.kb,
 				complete_while_typing=True
 			)

@@ -3,11 +3,12 @@ from ldap3 import Connection
 from ldapdomaindump import domainDumper
 from pydantic import BaseModel, Field
 from typing import Optional
-from ldap_shell.prompt import Prompt
+from ldap_shell.utils.module_loader import ModuleLoader
 from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
 import importlib
 from colorama import init, Fore, Back, Style
 import textwrap
+from ldap_shell.utils.module_loader import ModuleLoader
 # Инициализируем colorama для кроссплатформенной поддержки
 init()
 
@@ -27,7 +28,7 @@ class LdapShellModule(BaseLdapModule):
         command: Optional[str] = Field(
             None,  # This argument is required
             description="Command to execute",
-            arg_type=[ArgumentType.STRING]  # Changed to list of types
+            arg_type=[ArgumentType.COMMAND]  # Changed to list of types
         )
     
     def __init__(self, args_dict: dict, 
@@ -72,22 +73,17 @@ class LdapShellModule(BaseLdapModule):
         print('\n'.join(result))
 
     def __call__(self):
-        modules = Prompt.list_modules()
+        list_modules = ModuleLoader.list_modules()
+        modules = ModuleLoader.load_modules()
         helper_modules = {}
-        for module_name in modules:
-            module = importlib.import_module(f'ldap_shell.ldap_modules.{module_name}.ldap_module')
+        for module in modules:
+            module_name = module
             helper_modules[module_name] = {}
-            if hasattr(module.LdapShellModule, 'help_text'):
-                helper_modules[module_name]['help'] = module.LdapShellModule.help_text
-            if hasattr(module.LdapShellModule, 'module_type'):
-                helper_modules[module_name]['type'] = module.LdapShellModule.module_type
-            arguments = module.LdapShellModule.ModuleArgs.schema()
-            helper_modules[module_name]['args'] = []
-            for arg in arguments['properties']:
-                if 'default' in arguments['properties'][arg]:
-                    helper_modules[module_name]['args'].append(f"[{arg}]")
-                else:
-                    helper_modules[module_name]['args'].append(f"{arg}")
+            if hasattr(modules[module], 'help_text'):
+                helper_modules[module_name]['help'] = modules[module].help_text
+            if hasattr(modules[module], 'module_type'):
+                helper_modules[module_name]['type'] = modules[module].module_type
+            helper_modules[module_name]['args'] = modules[module].get_args_required()
 
         # Группируем модули по главам
         chapters = {}
@@ -103,9 +99,9 @@ class LdapShellModule(BaseLdapModule):
             chapters[chapter].append(f"    {module_name} {(' '.join(args))} - {help_text}")
 
         if self.args.command:
-            if self.args.command in Prompt.list_modules():
-                module = importlib.import_module(f'ldap_shell.ldap_modules.{self.args.command}.ldap_module')
-                module_class = module.LdapShellModule
+            if self.args.command in list_modules:
+                module = ModuleLoader.load_module(self.args.command)
+                module_class = module
                 
                 # Собираем информацию о модуле
                 header = module_class.__doc__ or "No description available"
@@ -125,19 +121,15 @@ class LdapShellModule(BaseLdapModule):
 # Arguments
 """
                 # Добавляем информацию об аргументах
-                for arg_name, arg_info in args_schema.get('properties', {}).items():
-                    required = arg_name in args_schema.get('required', [])
-                    arg_types = module_class.ModuleArgs.model_fields[arg_name].json_schema_extra['arg_type']
-                    if isinstance(arg_types, list):
-                        arg_type = '|'.join([arg_type.name for arg_type in arg_types])
-                    else:
-                        arg_type = arg_types.name
-                    description = arg_info.get('description', 'No description')
-                    name = arg_name
-                    
+                for arg in module_class.get_arguments():
+                    name = arg.name
+                    required = arg.required
+                    arg_types = '|'.join([arg_type.name for arg_type in arg.arg_type])
+                    description = arg.description
                     help_md += f"""    ### {name}
-        - Description: {description}
-        - Type: `{arg_type}`
+    - Description: {description}
+    - Type: `{arg_types}`
+    - Required: {required}
 """
                 help_md += f"\n# Examples"
                 # Добавляем примеры использования

@@ -19,35 +19,10 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Get Info" # Get Info, Abuse ACL, Misc and Other.
 
     class ModuleArgs(BaseModel):
-        """Model for describing module arguments.
-        
-        Field() to configure each argument with:
-           - default value (None for optional args)
-           - description - explains the argument's purpose
-           - arg_type - one of ArgumentType enum values:
-             * USER - for AD user objects
-             * COMPUTER - for AD computers  
-             * DIRECTORY - for filesystem paths
-             * STRING - for text input
-             more types in ../base_module.py
-             
-        Example:
-            class ModuleArgs(BaseModel):
-                user: str = Field(
-                    description="Target AD user",
-                    arg_type=ArgumentType.USER
-                )
-                group: Optional[str] = Field(
-                    None, # This argument is not required
-                    description="Optional AD group", 
-                    arg_type=ArgumentType.GROUP
-                )
-        """
-
-        example_arg: Optional[str] = Field(
+        group: Optional[str] = Field(
             None,  # This argument is not required
-            description="Example argument",
-            arg_type=[ArgumentType.STRING, ArgumentType.USER, ArgumentType.GROUP, ArgumentType.COMPUTER]  # Changed to list of types
+            description="Group name",
+            arg_type=ArgumentType.GROUP
         )
     
     def __init__(self, args_dict: dict, 
