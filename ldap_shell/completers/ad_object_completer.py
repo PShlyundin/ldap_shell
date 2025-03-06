@@ -57,7 +57,6 @@ class ADObjectCompleter(BaseArgumentCompleter):
         return text
 
     def _get_ad_objects(self):
-        sleep(1)
         objects = set()
         ldap_filter = self.get_ldap_filter()
         

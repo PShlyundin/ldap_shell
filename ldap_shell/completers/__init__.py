@@ -57,9 +57,7 @@ class MultiCompleter(BaseArgumentCompleter):
         # Получаем все возможные дополнения от каждого комплитера
         all_completions = defaultdict(list)
         for completer in self.completers:
-            print('lol')
             completions = list(completer.get_completions(document, complete_event, current_word))
-            print('kek')
             if completions:  # Добавляем только если есть результаты
                 all_completions[completer] = completions
         if not all_completions:

@@ -9,14 +9,14 @@ import ldap3
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 class LdapShellModule(BaseLdapModule):
-    """Module for adding a user to a group"""
+    """Module for deleting a user from a group"""
     
-    help_text = "Add a user to a group"
+    help_text = "Delete a user from a group"
     examples_text = """
-    Example: add john.doe to Domain Admins group
-    `add_user_to_group john.doe "Domain Admins"`
+    Example: delete john.doe from Domain Admins group
+    `del_user_from_group john.doe "Domain Admins"`
     ```
-    [INFO] Successfully added "john.doe" to "Domain Admins"
+    [INFO] Successfully deleted "john.doe" from "Domain Admins"
     ```
     """
     module_type = "Abuse ACL"
@@ -54,17 +54,16 @@ class LdapShellModule(BaseLdapModule):
         try:
             res = self.client.modify(
                 group_dn, 
-                {'member': [(ldap3.MODIFY_ADD, [user_dn])]}
+                {'member': [(ldap3.MODIFY_DELETE, [user_dn])]}
             )
         except Exception as e:
-            self.log.error(f'Failed to add user: {str(e)}')
+            self.log.error(f'Failed to delete user: {str(e)}')
             return
 
         if res:
-            self.log.info('Successfully added "%s" to "%s"', self.args.user, self.args.group)
-            # Check if modifying own group membership
+            self.log.info('Successfully deleted "%s" from "%s"', self.args.user, self.args.group)
             current_user = self.client.extend.standard.who_am_i().split(',')[0][3:]
             if current_user.lower() == self.args.user.lower():
                 self.log.warning('You modified your own group membership. Re-login may be required.')
         else:
-            self.log.error('Failed to add user: %s', self.client.result['description'])
+            self.log.error('Failed to delete user: %s', self.client.result['description'])
