@@ -25,7 +25,7 @@ from minikerberos.common.ccache import CCACHE
 from minikerberos.common.target import KerberosTarget
 from minikerberos.network.clientsocket import KerberosClientSocket
 
-from ldap_shell import ldaptypes
+from ldap_shell.utils import ldaptypes
 from ldap_shell.prompt import Prompt
 from ldap_shell.myPKINIT import myPKINIT
 from ldap_shell.helper import Helper
