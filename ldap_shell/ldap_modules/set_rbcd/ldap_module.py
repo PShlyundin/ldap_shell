@@ -84,7 +84,6 @@ class LdapShellModule(BaseLdapModule):
                 sd = SR_SECURITY_DESCRIPTOR(data=sd_data[0])
                 self.log.info('Current allowed SIDs:')
                 for ace in sd['Dacl'].aces:
-                    self.log.info('\t%s', ace['Ace']['Sid'].formatCanonical())
                     if ace['Ace']['Sid'].formatCanonical() == grantee_sid:
                         self.log.warning('Grantee already has delegation rights')
                         return

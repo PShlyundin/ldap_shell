@@ -23,6 +23,8 @@ class ModuleCompleter(Completer):
 	def get_completions(self, document, complete_event):
 		text = document.text_before_cursor
 		words = text.split()
+		if text.endswith(' '):
+			words.append('')
 		
 		# If this is the first word - suggest modules
 		if len(words) <= 1 and not text.endswith(' '):
@@ -44,11 +46,9 @@ class ModuleCompleter(Completer):
 		arguments = module_class.get_arguments()
 		
 		# Determine which argument needs suggestions
-		if len(words) == 1 and text.endswith(' '):
-			current_arg_index = len(words) - 1	
-		else:
-			current_arg_index = len(words) - 2
-		if current_arg_index >= len(arguments):
+		current_arg_index = max(len(words) - 2, 0)
+
+		if current_arg_index+1 > len(arguments):
 			return
 		
 		current_arg = arguments[current_arg_index]

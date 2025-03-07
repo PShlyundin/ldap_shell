@@ -13,9 +13,7 @@ class ADObjectCompleter(BaseArgumentCompleter):
     def __init__(self, ldap_connection, domain_dumper):
         self.ldap = ldap_connection
         self.domain_dumper = domain_dumper
-        self.bottom_toolbar = HTML('<style bg="ansired"> Loading AD objects... </style>')
         self._cached_objects = None
-        #super().__init__([], ignore_case=True)
 
     def get_completions(self, document: Document, complete_event, current_word=None):
         if not isinstance(document, Document):
@@ -27,12 +25,14 @@ class ADObjectCompleter(BaseArgumentCompleter):
         if not self._cached_objects:
             self._cached_objects = self._get_ad_objects()
         
-        word_before_cursor = text.split()[-1] if text.split() else ''
-        
+        if text.endswith(' '):
+            word_before_cursor = ''
+        else:
+            word_before_cursor = text.split()[-1] if text.split() else ''
+
         for obj in self._cached_objects:
             if ' ' in obj and not in_quotes:
                 obj = f'"{obj}"'
-                
             if word_before_cursor.lower() in obj.lower():
                 display = self._highlight_match(obj, word_before_cursor)
                 if self.highlight_color:

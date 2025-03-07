@@ -2,6 +2,7 @@ from typing import Optional
 import re
 from struct import pack, unpack
 import logging
+from ldap_shell.utils.ldaptypes import SR_SECURITY_DESCRIPTOR, LDAP_SID, ACL
 
 class LdapUtils:
     @staticmethod
@@ -36,6 +37,18 @@ class LdapUtils:
             attributes=['objectSid']
         )
         return result['objectSid'].value if result else None
+
+    @staticmethod
+    def sid_to_user(client, domain_dumper, sid: str) -> str:
+        """Convert SID to samAccountName"""
+        client.search(
+            domain_dumper.root,
+            f'(objectSid={sid})',
+            attributes=['sAMAccountName']
+        )
+        if client.entries:
+            return client.entries[0]['sAMAccountName'].value
+        return None
 
     @staticmethod
     def _search_with_retry(client, domain_dumper, name: str, attributes: list):
@@ -79,3 +92,22 @@ class LdapUtils:
         uuid = pack('<LHH', uuid1, uuid2, uuid3)
         uuid += pack('>HHL', uuid4, uuid5, uuid6)
         return uuid
+    
+    @staticmethod
+    def create_empty_sd():
+        sd = SR_SECURITY_DESCRIPTOR()
+        sd['Revision'] = b'\x01'
+        sd['Sbz1'] = b'\x00'
+        sd['Control'] = 32772
+        sd['OwnerSid'] = LDAP_SID()
+        # BUILTIN\Administrators
+        sd['OwnerSid'].fromCanonical('S-1-5-32-544')
+        sd['GroupSid'] = b''
+        sd['Sacl'] = b''
+        acl = ACL()
+        acl['AclRevision'] = 4
+        acl['Sbz1'] = 0
+        acl['Sbz2'] = 0
+        acl.aces = []
+        sd['Dacl'] = acl
+        return sd

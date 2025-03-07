@@ -7,6 +7,7 @@ from .directory import DirectoryCompleter
 from .attributes import AttributesCompleter
 from .command import CommandCompleter
 from collections import defaultdict
+from .rbcd_completer import RBCDCompleter
 
 COMPLETERS = {
         ArgumentType.DIRECTORY: DirectoryCompleter,
@@ -16,6 +17,7 @@ COMPLETERS = {
         ArgumentType.OU: OUCompleter,
         ArgumentType.ATTRIBUTES: AttributesCompleter,
         ArgumentType.COMMAND: CommandCompleter,
+        ArgumentType.RBCD: RBCDCompleter,
     }
 
 class CompleterFactory:
@@ -36,13 +38,13 @@ class CompleterFactory:
         for arg_type in arg_types:
             completer_class = COMPLETERS.get(arg_type)
             if completer_class:
-                if issubclass(completer_class, ADObjectCompleter):
+                if issubclass(completer_class, ADObjectCompleter) or issubclass(completer_class, RBCDCompleter):
                     completers.append(completer_class(client, domain_dumper))
                 else:
                     completers.append(completer_class())
         if not completers:
             return None
-            
+        
         return MultiCompleter(completers)
 
 
@@ -61,7 +63,7 @@ class MultiCompleter(BaseArgumentCompleter):
             if completions:  # Добавляем только если есть результаты
                 all_completions[completer] = completions
         if not all_completions:
-            return
+            return None
             
         # Вычисляем, сколько подсказок брать от каждого комплитера
         num_completers = len(all_completions)
