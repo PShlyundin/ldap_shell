@@ -15,6 +15,8 @@ class LdapShellModule(BaseLdapModule):
     
     help_text = "Configure RBCD permissions for a target computer"
     examples_text = """
+    You can use this module to abuse GenericAll, GenericWrite and
+    Write to property AllowedToActOnBehalfOfOtherIdentity rights on a computer account.
     Example: set RBCD for target computer DC01 allowing WEB01 to delegate
     `set_rbcd DC01$ WEB01$`
     ```
