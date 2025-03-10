@@ -21,8 +21,16 @@ class LdapShellModule(BaseLdapModule):
     examples_text = """
     Get all LAPS and GMSA passwords
     `get_laps_gmsa`
-    Get LAPS and GMSA passwords for machine account pentest$
-    `get_laps_gmsa pentest$`
+    ```
+    [INFO] [LAPS v2] SRV1$: 2ph97sJVNl8PB1
+    [INFO] [LAPS v1] SRV2$: 1BP8lNVJs79hp2
+    [INFO] No GMSA accounts found
+    ```
+    Get LAPS and GMSA passwords for machine account wks1$
+    `get_laps_gmsa wks1$`
+    ```
+    [INFO] [LAPS v2] wks1$: 2ph97sJVNl8PB1
+    ```
     """
     module_type = "Get Info"
 
