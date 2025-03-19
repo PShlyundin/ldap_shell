@@ -10,31 +10,31 @@ from ldap3.utils.conv import escape_filter_chars
 from ldap_shell.utils.ldap_utils import LdapUtils
 from ldap_shell.utils.ace_utils import AceUtils
 import ldap_shell.utils.ldaptypes as ldaptypes
-
+from ldap_shell.utils.ldap_utils import LdapUtils
 class LdapShellModule(BaseLdapModule):
-    """Module for set DS-Replication-Get-Changes-All privilege to the target AD user or computer"""
+    """Module to remove DS-Replication privileges from target"""
     
-    help_text = "If you have write access to the domain object, assign the DS-Replication right to the selected user"
+    help_text = "Remove DCSync rights from user/computer by deleting ACEs in domain DACL"
     examples_text = """
-    Set DS-Replication-Get-Changes-All privilege to the target AD user
-    `set_dcsync john.doe`
+    Remove DCSync privileges from target user
+    `del_dcsync CN=John Doe,CN=Users,DC=contoso,DC=com`
     ```
-    [INFO] DACL modified successfully! john.doe now has DS-Replication privilege and can perform DCSync attack!
+    [INFO] DCSync rights removed from John Doe
     ```
     """
-    module_type = "Abuse ACL" # Get Info, Abuse ACL, Misc and Other.
+    module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
         target: Optional[str] = Field(
-            description="Target DN of user or computer",
+            description="Target DN of user/computer to revoke rights",
             arg_type=[ArgumentType.DN]
         )
-    
+
     def __init__(self, args_dict: dict, 
                  domain_dumper: domainDumper, 
                  client: Connection,
                  log=None):
-        self.args = self.ModuleArgs(**args_dict) 
+        self.args = self.ModuleArgs(**args_dict)
         self.domain_dumper = domain_dumper
         self.client = client
         self.log = log or logging.getLogger('ldap-shell.shell')
@@ -49,30 +49,46 @@ class LdapShellModule(BaseLdapModule):
         user_dn = self.args.target
         sd_data, domain_root_sid = LdapUtils.get_info_by_dn(self.client, self.domain_dumper, target_dn)
         _, user_sid = LdapUtils.get_info_by_dn(self.client, self.domain_dumper, user_dn)
-        
-        if sd_data is None:
-            raise Exception(f'Error expected only one search result, got {len(self.client.entries)} results')
+
+        if not sd_data:
+            self.log.error('Failed to retrieve domain security descriptor')
+            return
 
         sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=sd_data[0])
+        dcsync_guids = {
+            LdapUtils.string_to_bin('1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'),
+            LdapUtils.string_to_bin('1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'),
+            LdapUtils.string_to_bin('89e95b76-444d-4c62-991a-0facbeda640c')
+        }
 
         if len(sd_data) < 1:
             raise Exception(f'Check if target have write access to the domain object')
         else:
             sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=sd_data[0])
 
-        user_name = LdapUtils.get_name_from_dn(user_dn)
-        attr_values = []
+        new_aces = []
+        for ace in sd['Dacl'].aces:
+            if ace['Ace']['Sid'].formatCanonical() == user_sid:
+                try:
+                    # Преобразуем бинарный ObjectType в строку
+                    object_type = ace['Ace']['ObjectType']
+                    if object_type in dcsync_guids:  # <-- прямое сравнение бинарных данных
+                        continue
+                except AttributeError:
+                    pass
+            new_aces.append(ace)
 
-        sd['Dacl'].aces.append(AceUtils.createACE(sid=user_sid, object_type='1131f6ad-9c07-11d1-f79f-00c04fc2dcd2')) #set DS-Replication-Get-Changes-All
-        sd['Dacl'].aces.append(AceUtils.createACE(sid=user_sid, object_type='1131f6aa-9c07-11d1-f79f-00c04fc2dcd2')) #set DS-Replication-Get-Changes
-        sd['Dacl'].aces.append(AceUtils.createACE(sid=user_sid, object_type='89e95b76-444d-4c62-991a-0facbeda640c')) #set DS-Replication-Get-Changes-In-Filtered-Set
-
-        if len(sd['Dacl'].aces) > 0:
-            attr_values.append(sd.getData())
-        self.client.modify(target_dn, {ldap_attribute: [MODIFY_REPLACE, attr_values]}, controls=security_descriptor_control(sdflags=0x04))
+        # Применяем изменения
+        sd['Dacl'].aces = new_aces
+        self.client.modify(
+            target_dn,
+            {'nTSecurityDescriptor': [MODIFY_REPLACE, [sd.getData()]]},
+            controls=security_descriptor_control(sdflags=0x04)
+        )
 
         if self.client.result['result'] == 0:
-            self.log.info(f'DACL modified successfully! {user_name} now has DS-Replication privilege and can perform DCSync attack!')
+            user_name = LdapUtils.get_name_from_dn(user_dn)
+            self.log.info(f'DCSync rights removed from {user_name}')
         else:
             self.process_error_response()
 
