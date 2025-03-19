@@ -1,4 +1,5 @@
 import ldap_shell.utils.ldaptypes as ldaptypes
+from ldap_shell.utils.ldap_utils import LdapUtils
 
 class AceUtils:
     @staticmethod
@@ -50,7 +51,7 @@ class AceUtils:
         else:
             nace['AceType'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
             acedata = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE()
-            acedata['ObjectType'] = AceUtils.string_to_bin(object_type)
+            acedata['ObjectType'] = LdapUtils.string_to_bin(object_type)
             acedata['InheritedObjectType'] = b''
             acedata['Flags'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
 

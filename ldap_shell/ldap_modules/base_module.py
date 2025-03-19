@@ -27,6 +27,7 @@ class ArgumentType(Enum):
     ATTRIBUTES = 'attributes'
     COMMAND = 'command'
     RBCD = 'rbcd'
+    DN = 'dn'
 
 class ModuleArgument:
     def __init__(self, name: str, arg_type: ArgumentType, description: str, required: bool):

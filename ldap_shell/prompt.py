@@ -169,16 +169,16 @@ class Prompt:
 						quoted_words = shlex.split(text_before_cursor+'"')
 					else:
 						quoted_words = shlex.split(text_before_cursor)
-
+					
 					last_word = quoted_words[-1]
-
-					if ',' in last_word:
+					if ',' in last_word and not 'DC=' in last_word:
 						del_word = last_word.split(',')[-1]
-					elif ' ' in last_word:
+					elif ' ' in last_word or '"' in last_word:
+						del_word = f'"{last_word}"'
+					elif 'DC=' in last_word:
 						del_word = f'"{last_word}"'
 					else:
 						del_word = last_word
-
 					last_separator = len(text_before_cursor) - len(del_word)
 
 					if last_separator >= 0:

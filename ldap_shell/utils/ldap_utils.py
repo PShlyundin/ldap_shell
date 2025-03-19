@@ -3,6 +3,7 @@ import re
 from struct import pack, unpack
 import logging
 from ldap_shell.utils.ldaptypes import SR_SECURITY_DESCRIPTOR, LDAP_SID, ACL
+from ldap3.protocol.microsoft import security_descriptor_control
 
 class LdapUtils:
     @staticmethod
@@ -50,6 +51,34 @@ class LdapUtils:
             return client.entries[0]['sAMAccountName'].value
         return None
 
+    @staticmethod
+    def check_dn(client, domain_dumper, dn: str) -> bool:
+        """Check if DN is valid"""
+        client.search(
+            domain_dumper.root,
+            f'(distinguishedName={dn})',
+            attributes=['objectClass']
+        )
+        return len(client.entries) > 0
+
+    @staticmethod
+    def get_info_by_dn(client, domain_dumper, dn: str) -> Optional[tuple[bytes, str]]:
+        """Get info by DN"""
+        client.search(
+            domain_dumper.root,
+            f'(distinguishedName={dn})',
+            attributes=['nTSecurityDescriptor', 'objectSid'],
+            controls=security_descriptor_control(sdflags=0x04)
+        )
+        if len(client.entries) > 0:
+            return client.entries[0]['nTSecurityDescriptor'].raw_values, client.entries[0]['objectSid'].value
+        return None
+
+    @staticmethod
+    def get_name_from_dn(dn: str) -> Optional[str]:
+        """Get name from DN"""
+        return dn.split(',')[0].split('=')[1]
+    
     @staticmethod
     def _search_with_retry(client, domain_dumper, name: str, attributes: list):
         # Первоначальный поиск

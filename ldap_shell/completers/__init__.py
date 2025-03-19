@@ -8,6 +8,7 @@ from .attributes import AttributesCompleter
 from .command import CommandCompleter
 from collections import defaultdict
 from .rbcd_completer import RBCDCompleter
+from .dn_completer import DNCompleter
 
 COMPLETERS = {
         ArgumentType.DIRECTORY: DirectoryCompleter,
@@ -18,6 +19,7 @@ COMPLETERS = {
         ArgumentType.ATTRIBUTES: AttributesCompleter,
         ArgumentType.COMMAND: CommandCompleter,
         ArgumentType.RBCD: RBCDCompleter,
+        ArgumentType.DN: DNCompleter
     }
 
 class CompleterFactory:
@@ -38,7 +40,7 @@ class CompleterFactory:
         for arg_type in arg_types:
             completer_class = COMPLETERS.get(arg_type)
             if completer_class:
-                if issubclass(completer_class, ADObjectCompleter) or issubclass(completer_class, RBCDCompleter):
+                if issubclass(completer_class, ADObjectCompleter) or issubclass(completer_class, RBCDCompleter) or issubclass(completer_class, DNCompleter):
                     completers.append(completer_class(client, domain_dumper))
                 else:
                     completers.append(completer_class())

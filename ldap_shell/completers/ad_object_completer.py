@@ -75,9 +75,8 @@ class ADObjectCompleter(BaseArgumentCompleter):
                     objects.add(str(getattr(entry, self.fallback_attribute)))
             
         except Exception as e:
-            self.log.error(f"Error fetching AD objects: {str(e)}")
+            print(f"Error fetching AD objects: {str(e)}")
             
-        self.bottom_toolbar = ''
         return objects 
    
     @abstractmethod
