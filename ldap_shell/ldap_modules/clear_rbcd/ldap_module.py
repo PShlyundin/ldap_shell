@@ -34,7 +34,7 @@ class LdapShellModule(BaseLdapModule):
             description="Target computer account",
             arg_type=ArgumentType.COMPUTER
         )
-        computer_sam_account_name: Optional[str] = Field(
+        grantee: Optional[str] = Field(
             None,
             description="SAM account name of the target computer",
             arg_type=[ArgumentType.RBCD]
@@ -58,8 +58,8 @@ class LdapShellModule(BaseLdapModule):
             return
         
         # Get target SID
-        if self.args.computer_sam_account_name:
-            target_sid = LdapUtils.get_sid(self.client, self.domain_dumper, self.args.computer_sam_account_name)
+        if self.args.grantee:
+            target_sid = LdapUtils.get_sid(self.client, self.domain_dumper, self.args.grantee)
 
         # Get current security descriptor
         try:
@@ -83,7 +83,7 @@ class LdapShellModule(BaseLdapModule):
                 self.client.modify(target_dn, {'msDS-AllowedToActOnBehalfOfOtherIdentity': [ldap3.MODIFY_REPLACE, [sd.getData()]]})
 
                 if self.client.result['result'] == 0:
-                    self.log.info(f'RBCD permissions cleared successfully! {self.args.computer_sam_account_name} can no longer impersonate users on {self.args.target}')
+                    self.log.info(f'RBCD permissions cleared successfully! {self.args.grantee} can no longer impersonate users on {self.args.target}')
                 else:
                     self.log.error(f'Failed to modify RBCD permissions: {self.client.result["description"]}')
             else:

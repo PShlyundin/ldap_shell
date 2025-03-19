@@ -22,7 +22,7 @@ class ModuleCompleter(Completer):
 		
 	def get_completions(self, document, complete_event):
 		text = document.text_before_cursor
-		words = text.split()
+		words = shlex.split(text)
 		if text.endswith(' '):
 			words.append('')
 		
