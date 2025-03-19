@@ -13,6 +13,7 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from pyasn1.codec.der import decoder
 from pyasn1_modules import rfc5652
 import json
+import re
 
 class LdapShellModule(BaseLdapModule):
     """Module for retrieving LAPS and GMSA passwords"""
@@ -74,11 +75,25 @@ class LdapShellModule(BaseLdapModule):
             # Настраиваем RPC соединение
             string_binding = epm.hept_map(self.client.server.host, gkdi.MSRPC_UUID_GKDI, protocol = 'ncacn_ip_tcp')
             rpc_transport = transport.DCERPCTransportFactory(string_binding)
-            rpc_transport.set_credentials(
-                user, 
-                self.client.password,
-                domain
-            )
+            # Проверяем формат пароля на наличие хеша
+            if ':' in self.client.password and re.match(r'[a-f0-9]{32}', self.client.password.lower().split(':')[1]):
+                password_parts = self.client.password.split(':')
+                if len(password_parts) == 2:
+                    # Если обнаружен хеш, используем его для аутентификации
+                    rpc_transport.set_credentials(
+                        user,
+                        '',  # Пустой пароль
+                        domain,
+                        lmhash='aad3b435b51404eeaad3b435b51404ee',
+                        nthash=password_parts[1]
+                    )
+            else:
+                # Если это не хеш, используем обычную аутентификацию по паролю
+                rpc_transport.set_credentials(
+                    user, 
+                    self.client.password,
+                    domain
+                )
             
             dce = rpc_transport.get_dce_rpc()
             dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
