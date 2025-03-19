@@ -61,7 +61,7 @@ class LdapShellModule(BaseLdapModule):
             parsed_cms, remaining = decoder.decode(encrypted_blob['Blob'], asn1Spec=rfc5652.ContentInfo())
             enveloped_data = parsed_cms['content']
             
-            # Извлекаем идентификатор ключа
+            # Extract key identifier
             parsed_enveloped, _ = decoder.decode(enveloped_data, asn1Spec=rfc5652.EnvelopedData())
             kek_info = parsed_enveloped['recipientInfos'][0]['kekri']
             kek_identifier = kek_info['kekid'] 
@@ -69,26 +69,26 @@ class LdapShellModule(BaseLdapModule):
             tmp,_ = decoder.decode(kek_identifier['other']['keyAttr'])
             sid = tmp['field-1'][0][0][1].asOctets().decode("utf-8") 
                         
-            # Создаем Security Descriptor
+            # Create Security Descriptor
             target_sd = create_sd(sid)
             
-            # Настраиваем RPC соединение
+            # Setup RPC connection
             string_binding = epm.hept_map(self.client.server.host, gkdi.MSRPC_UUID_GKDI, protocol = 'ncacn_ip_tcp')
             rpc_transport = transport.DCERPCTransportFactory(string_binding)
-            # Проверяем формат пароля на наличие хеша
+            # Check password format for hash
             if ':' in self.client.password and re.match(r'[a-f0-9]{32}', self.client.password.lower().split(':')[1]):
                 password_parts = self.client.password.split(':')
                 if len(password_parts) == 2:
-                    # Если обнаружен хеш, используем его для аутентификации
+                    # If hash detected, use it for authentication
                     rpc_transport.set_credentials(
                         user,
-                        '',  # Пустой пароль
+                        '',  # Empty password
                         domain,
                         lmhash='aad3b435b51404eeaad3b435b51404ee',
                         nthash=password_parts[1]
                     )
             else:
-                # Если это не хеш, используем обычную аутентификацию по паролю
+                # If not hash, use regular password authentication
                 rpc_transport.set_credentials(
                     user, 
                     self.client.password,
@@ -100,7 +100,7 @@ class LdapShellModule(BaseLdapModule):
             dce.connect()
             dce.bind(gkdi.MSRPC_UUID_GKDI)
             
-            # Получаем групповой ключ с правильными параметрами
+            # Get group key with correct parameters
             resp = gkdi.GkdiGetKey(
                 dce,
                 target_sd=target_sd,
@@ -113,7 +113,7 @@ class LdapShellModule(BaseLdapModule):
             gke = gkdi.GroupKeyEnvelope(b''.join(resp['pbbOut']))
             kek = compute_kek(gke, key_params)
             
-            # Убираем кэширование и связанную логику
+            # Remove caching and related logic
             enc_content_parameter = bytes(parsed_enveloped['encryptedContentInfo']['contentEncryptionAlgorithm']['parameters'])
             iv, _ = decoder.decode(enc_content_parameter)
             iv = bytes(iv[0])
@@ -122,17 +122,17 @@ class LdapShellModule(BaseLdapModule):
             return decrypt_plaintext(cek, iv, remaining)
             
         except Exception as e:
-            self.log.error(f"Ошибка расшифровки LAPS v2: {str(e)}")
+            self.log.error(f"Error decrypting LAPS v2: {str(e)}")
             return None
 
     def __check_laps_attributes(self):
-        """Проверяет доступные атрибуты LAPS в домене"""
+        """Check available LAPS attributes in domain"""
         self.laps_attributes = []
         schema = self.client.server.schema
         
-        # Проверяем наличие атрибутов в схеме
+        # Check for attributes in schema
         if 'ms-mcs-admpwd' in schema.attribute_types:
-            self.laps_attributes.append('ms-Mcs-AdmPwd')  # Регистр важен для LDAP
+            self.laps_attributes.append('ms-Mcs-AdmPwd')  # Case sensitive for LDAP
             
         if 'mslaps-encryptedpassword' in schema.attribute_types:
             self.laps_attributes.append('msLAPS-EncryptedPassword')
@@ -140,17 +140,17 @@ class LdapShellModule(BaseLdapModule):
         return bool(self.laps_attributes)
 
     def __call__(self):
-        # Определяем доступные атрибуты LAPS
+        # Determine available LAPS attributes
         if not self.__check_laps_attributes():
-            self.log.error("В домене не настроен LAPS")
+            self.log.error("LAPS is not configured in domain")
             return
 
-        # Формируем фильтр поиска
+        # Form search filter
         search_filter = '(objectClass=computer)'
         if self.args.target:
             search_filter = f'(&(objectClass=computer)(sAMAccountName={self.args.target}))'
         else:
-            # Динамически создаем фильтр по доступным атрибутам
+            # Dynamically create filter based on available attributes
             attr_filters = []
             if 'ms-Mcs-AdmPwd' in self.laps_attributes:
                 attr_filters.append('(ms-Mcs-AdmPwd=*)')
@@ -158,12 +158,12 @@ class LdapShellModule(BaseLdapModule):
                 attr_filters.append('(msLAPS-EncryptedPassword=*)')
             
             if not attr_filters:
-                self.log.error("Нет доступных атрибутов LAPS для поиска")
+                self.log.error("No available LAPS attributes for search")
                 return
                 
             search_filter = f'(&(objectClass=computer)(|{"".join(attr_filters)}))'
 
-        # Выполняем поиск
+        # Execute search
         self.client.search(
             self.domain_dumper.root,
             search_filter,
@@ -174,14 +174,14 @@ class LdapShellModule(BaseLdapModule):
             hostname = entry['sAMAccountName'].value
             password = None
             
-            # Обработка LAPS v1
+            # Process LAPS v1
             if 'ms-Mcs-AdmPwd' in entry:
                 laps_v1 = entry['ms-Mcs-AdmPwd'].value
                 if laps_v1:
                     self.log.info(f'[LAPS v1] {hostname}: {laps_v1}')
                     continue
 
-            # Обработка LAPS v2
+            # Process LAPS v2
             if 'msLAPS-EncryptedPassword' in entry:
                 laps_v2 = entry['msLAPS-EncryptedPassword'].value
                 if laps_v2:
@@ -190,7 +190,7 @@ class LdapShellModule(BaseLdapModule):
                         password = json.loads(decrypted[:-18].decode('utf-16le'))['p']
                         self.log.info(f'[LAPS v2] {hostname}: {password}')
         
-        # Обработка GMSA
+        # Process GMSA
         self.client.search(
             self.domain_dumper.root,
             '(objectClass=msDS-GroupManagedServiceAccount)',
