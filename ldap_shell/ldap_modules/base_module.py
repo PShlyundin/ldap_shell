@@ -27,7 +27,9 @@ class ArgumentType(Enum):
     ATTRIBUTES = 'attributes'
     COMMAND = 'command'
     RBCD = 'rbcd'
+    ADD_DEL = 'add_del'
     DN = 'dn'
+    MASK = 'mask'
 
 class ModuleArgument:
     def __init__(self, name: str, arg_type: ArgumentType, description: str, required: bool):

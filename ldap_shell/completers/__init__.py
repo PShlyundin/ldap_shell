@@ -9,6 +9,8 @@ from .command import CommandCompleter
 from collections import defaultdict
 from .rbcd_completer import RBCDCompleter
 from .dn_completer import DNCompleter
+from .add_del_completer import AddDelCompleter
+from .mask_completer import MaskCompleter
 
 COMPLETERS = {
         ArgumentType.DIRECTORY: DirectoryCompleter,
@@ -19,7 +21,9 @@ COMPLETERS = {
         ArgumentType.ATTRIBUTES: AttributesCompleter,
         ArgumentType.COMMAND: CommandCompleter,
         ArgumentType.RBCD: RBCDCompleter,
-        ArgumentType.DN: DNCompleter
+        ArgumentType.DN: DNCompleter,
+        ArgumentType.ADD_DEL: AddDelCompleter,
+        ArgumentType.MASK: MaskCompleter
     }
 
 class CompleterFactory:
