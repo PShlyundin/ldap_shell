@@ -308,6 +308,8 @@ class Prompt:
 				line = self.session.prompt(self.prompt)
 				if line.strip() == 'exit':
 					break
-				self.onecmd(line)
+				prompt = self.onecmd(line)
+				if prompt:
+					self.prompt = prompt
 			except KeyboardInterrupt:
 				break  
