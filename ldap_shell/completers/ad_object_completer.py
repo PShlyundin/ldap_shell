@@ -4,6 +4,7 @@ from prompt_toolkit.formatted_text import HTML
 from .base import BaseArgumentCompleter
 from typing import Union
 from abc import abstractmethod
+from ldap3 import SUBTREE
 
 class ADObjectCompleter(BaseArgumentCompleter):
     """Completer for AD objects (users, computers, groups, OUs)"""
@@ -61,24 +62,31 @@ class ADObjectCompleter(BaseArgumentCompleter):
         ldap_filter = self.get_ldap_filter()
         
         try:
-            self.ldap.search(
-                self.domain_dumper.root,
-                ldap_filter,
-                attributes=self.attributes
+            # Используем встроенный метод для паджинации
+            search_generator = self.ldap.extend.standard.paged_search(
+                search_base=self.domain_dumper.root,
+                search_filter=ldap_filter,
+                search_scope=SUBTREE,
+                attributes=self.attributes,
+                paged_size=500,
+                generator=True
             )
             
-            for entry in self.ldap.entries:
+            for entry in search_generator:
+                if entry['type'] != 'searchResEntry':
+                    continue
+                    
                 # Для каждого типа объекта свой приоритет атрибутов
-                if hasattr(entry, self.primary_attribute):
-                    objects.add(str(getattr(entry, self.primary_attribute)))
-                elif hasattr(entry, self.fallback_attribute):
-                    objects.add(str(getattr(entry, self.fallback_attribute)))
+                if self.primary_attribute in entry['attributes']:
+                    objects.add(str(entry['attributes'][self.primary_attribute]))
+                elif self.fallback_attribute in entry['attributes']:
+                    objects.add(str(entry['attributes'][self.fallback_attribute]))
             
         except Exception as e:
             print(f"Error fetching AD objects: {str(e)}")
             
-        return objects 
-   
+        return objects
+
     @abstractmethod
     def get_ldap_filter(self):
         """Each inheritor must define its own LDAP filter"""

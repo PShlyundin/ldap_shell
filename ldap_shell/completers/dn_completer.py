@@ -18,22 +18,26 @@ class DNCompleter(BaseArgumentCompleter):
         if not isinstance(document, Document):
             return
 
-        text = document.text_before_cursor
+        text = document.text_before_cursor.replace('"', '')
         
         if not self._cached_objects:
             self._cached_objects = self._get_ad_objects()
+        
         if text.endswith(' '):
             word_before_cursor = ''
         else:
             word_before_cursor = text.split()[-1] if text.split() else ''
 
         for obj in self._cached_objects:
-            if word_before_cursor.lower() in obj['identifier'].lower():
-                display = self._highlight_match(obj['dn'], word_before_cursor)
+            # Проверяем как identifier, так и DN
+            if (word_before_cursor.lower() in obj['identifier'].lower() or
+                word_before_cursor.lower() in obj['dn'].lower()):
+                
+                display = self._highlight_match(obj['identifier'], word_before_cursor)
                 if obj['color']:
                     display = f"<style bg='{obj['color']}'>{display}</style>"
                 yield Completion(
-                    f"\"{obj['dn']}\"",
+                    text = f"\"{obj['dn']}\"",
                     start_position=-len(word_before_cursor),
                     display=HTML(display)
                 )
@@ -57,45 +61,58 @@ class DNCompleter(BaseArgumentCompleter):
             'user': 'ansibrightgreen',
             'computer': 'ansibrightred',
             'group': 'ansibrightyellow',
-            'ou': '#FF00FF',          # Яркий пурпурный в HEX
-            'domain_root': 'ansiblue'  # Синий фон
+            'ou': '#FF00FF',
+            'domain_root': 'ansiblue',
+            'gpo': 'ansibrightblue'
         }
-        
-        self.ldap.search(
-            self.domain_dumper.root,
-            '(objectClass=*)',
-            attributes=['distinguishedName', 'objectClass', 'sAMAccountName', 'ou'],
-            search_scope=SUBTREE
+
+        # Используем встроенный метод для пейджинации
+        search_generator = self.ldap.extend.standard.paged_search(
+            search_base=self.domain_dumper.root,
+            search_filter='(objectClass=*)',
+            search_scope=SUBTREE,
+            attributes=['distinguishedName', 'objectClass', 'sAMAccountName', 'ou', 'displayName', 'cn'],
+            paged_size=500,
+            generator=True
         )
-        for entry in self.ldap.entries:
-            dn = entry.entry_dn
-            obj_classes = entry.objectClass.values
+
+        for entry in search_generator:
+            if entry['type'] != 'searchResEntry':
+                continue
+            
+            dn = entry['dn']
+            obj_classes = entry['attributes'].get('objectClass', [])
             
             # Определяем тип
             if 'user' in obj_classes:
                 obj_type = 'User'
-                identifier = entry.sAMAccountName.value
+                identifier = entry['attributes'].get('sAMAccountName', [''])
                 highlight_color = COLOR_MAPPING['user']
             elif 'computer' in obj_classes:
                 obj_type = 'Computer'
-                identifier = entry.sAMAccountName.value
+                identifier = entry['attributes'].get('sAMAccountName', [''])
                 highlight_color = COLOR_MAPPING['computer']
             elif 'group' in obj_classes:
                 obj_type = 'Group'
-                identifier = entry.sAMAccountName.value
+                identifier = entry['attributes'].get('sAMAccountName', [''])
                 highlight_color = COLOR_MAPPING['group']
             elif 'organizationalUnit' in obj_classes:
                 obj_type = 'OU'
-                identifier = dn.split(',')[0].split('=')[1]  # Извлекаем OU из DN
+                identifier = dn.split(',')[0].split('=')[1]
                 highlight_color = COLOR_MAPPING['ou']
-            elif 'domainDNS' in obj_classes and dn.count(',') == 1:  # Корень домена
+            elif 'domainDNS' in obj_classes and dn.count(',') == 1:
                 obj_type = 'Domain Root'
                 identifier = dn.split('=')[1].split(',')[0]
                 highlight_color = COLOR_MAPPING['domain_root']
-            #else:
-            #    obj_type = 'Other'
-            #    identifier = dn
-            #    highlight_color = "ansibrightwhite"
+            elif 'groupPolicyContainer' in obj_classes:
+                obj_type = 'GPO'
+                # Получаем displayName или cn, учитывая возможное отсутствие атрибутов
+                display_name = entry['attributes'].get('displayName', [None])
+                cn_value = entry['attributes'].get('cn', [None])
+                identifier = display_name or cn_value or dn.split(',')[0].split('=')[1]
+                highlight_color = COLOR_MAPPING['gpo']
+            else:
+                continue
 
             obj_info = {
                 "identifier": identifier,
@@ -104,7 +121,5 @@ class DNCompleter(BaseArgumentCompleter):
                 "color": highlight_color
             }
             objects.append(obj_info)
-        #except Exception as e:
-        #    print(f"Error fetching AD objects: {str(e)}")
-            
+
         return objects

@@ -60,7 +60,7 @@ class MultiCompleter(BaseArgumentCompleter):
     
     def __init__(self, completers: List[BaseArgumentCompleter]):
         self.completers = completers
-        self.max_total_suggestions = 10
+        self.max_total_suggestions = 20
         
     def get_completions(self, document, complete_event, current_word: str):
         # Получаем все возможные дополнения от каждого комплитера
