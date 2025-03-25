@@ -12,7 +12,7 @@ from pyasn1.codec.der import encoder, decoder
 from pyasn1.error import PyAsn1Error
 from pyasn1.type.univ import noValue
 
-from ldap_shell import nt_errors
+import ldap_shell.utils.nt_errors as nt_errors
 from ldap_shell.krb5 import constants
 from ldap_shell.krb5.asn1 import AS_REQ, KERB_PA_PAC_REQUEST, seq_set, seq_set_iter, KERB_ERROR_DATA, KRB_ERROR, \
     AS_REP, METHOD_DATA, ETYPE_INFO2, ETYPE_INFO, PA_ENC_TS_ENC, EncryptedData, EncASRepPart, TGS_REP, AP_REQ, \
