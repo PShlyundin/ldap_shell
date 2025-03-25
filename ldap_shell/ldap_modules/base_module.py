@@ -30,6 +30,7 @@ class ArgumentType(Enum):
     ADD_DEL = 'add_del'
     DN = 'dn'
     MASK = 'mask'
+    BOOLEAN = 'boolean'
 
 class ModuleArgument:
     def __init__(self, name: str, arg_type: ArgumentType, description: str, required: bool):

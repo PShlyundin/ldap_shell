@@ -11,7 +11,7 @@ from .rbcd_completer import RBCDCompleter
 from .dn_completer import DNCompleter
 from .add_del_completer import AddDelCompleter
 from .mask_completer import MaskCompleter
-
+from .boolean_completer import BooleanCompleter
 COMPLETERS = {
         ArgumentType.DIRECTORY: DirectoryCompleter,
         ArgumentType.USER: UserCompleter,
@@ -23,7 +23,8 @@ COMPLETERS = {
         ArgumentType.RBCD: RBCDCompleter,
         ArgumentType.DN: DNCompleter,
         ArgumentType.ADD_DEL: AddDelCompleter,
-        ArgumentType.MASK: MaskCompleter
+        ArgumentType.MASK: MaskCompleter,
+        ArgumentType.BOOLEAN: BooleanCompleter
     }
 
 class CompleterFactory:
