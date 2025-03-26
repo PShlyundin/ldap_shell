@@ -1,18 +1,16 @@
 from prompt_toolkit.completion import WordCompleter, Completion
 from prompt_toolkit.document import Document
 from .base import BaseArgumentCompleter
-from typing import Union
-from abc import abstractmethod
 from prompt_toolkit.formatted_text import HTML
 from ldap3 import SUBTREE
-import json
+from ldap_shell.completers.base import ADObjectCacheManager
 
 class DNCompleter(BaseArgumentCompleter):
     """Completer for DN"""
     def __init__(self, ldap_connection, domain_dumper):
         self.ldap = ldap_connection
         self.domain_dumper = domain_dumper
-        self._cached_objects = None
+        self.cache_manager = ADObjectCacheManager()
 
     def get_completions(self, document: Document, complete_event, current_word=None):
         if not isinstance(document, Document):
@@ -20,15 +18,18 @@ class DNCompleter(BaseArgumentCompleter):
 
         text = document.text_before_cursor.replace('"', '')
         
-        if not self._cached_objects:
-            self._cached_objects = self._get_ad_objects()
+        # Получаем кеш из менеджера
+        cached_objects = self.cache_manager.get_cache(self.__class__.__name__)
+        if cached_objects is None:
+            cached_objects = self._get_ad_objects()
+            self.cache_manager.set_cache(self.__class__.__name__, cached_objects)
         
         if text.endswith(' '):
             word_before_cursor = ''
         else:
             word_before_cursor = text.split()[-1] if text.split() else ''
 
-        for obj in self._cached_objects:
+        for obj in cached_objects:
             # Проверяем как identifier, так и DN
             if (word_before_cursor.lower() in obj['identifier'].lower() or
                 word_before_cursor.lower() in obj['dn'].lower()):

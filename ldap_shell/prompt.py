@@ -12,6 +12,7 @@ from ldap_shell.ldap_modules.base_module import ArgumentType
 from prompt_toolkit.key_binding import KeyBindings
 from ldap_shell.completers import CompleterFactory
 from ldap_shell.utils.module_loader import ModuleLoader
+from ldap_shell.utils import history
 import shlex
 
 class ModuleCompleter(Completer):
@@ -129,7 +130,7 @@ class Prompt:
 		self.domain_dumper = domain_dumper
 		self.client = client
 		self.prompt = '# '
-		self.history = FileHistory(os.path.expanduser('~/.ldap_shell_history'))
+		self.history = history
 		self.helper = Helper()
 		self.meta = self.helper.get_meta()
 		self.identchars = string.ascii_letters + string.digits + '_'

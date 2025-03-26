@@ -5,11 +5,15 @@ import os
 import re
 from datetime import datetime
 from typing import Optional, Tuple
+from prompt_toolkit.history import FileHistory
 
 log = logging.getLogger('ldap-shell.utils')
 
 # Compat
 PY3 = True
+
+# Инициализация истории команд
+history = FileHistory(os.path.expanduser('~/.ldap_shell_history'))
 
 
 def init_logging(debug: bool, logs_dir_path: Optional[str] = None) -> None:
