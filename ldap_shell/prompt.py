@@ -273,15 +273,25 @@ class Prompt:
 			)
 		return module()
 
+	def check_args_exist(self, module_name: str, args_dict: dict):
+		module = self.modules[module_name]
+		arguments = module.get_arguments()
+		for arg in arguments:
+			if arg.name not in args_dict and arg.required:
+				return False
+		return True
+
 	def onecmd(self, line):
 		cmd, arg_string, _ = self.parseline(line)
 		if self.is_valid_line(line) is False:
-			print(f'*** Unknown syntax: {line}')
 			return
 
 		if cmd in self.modules:
 			try:
 				args_dict = self.parse_module_args(cmd, arg_string)
+				if not self.check_args_exist(cmd, args_dict):
+					print(f'*** Missing required arguments for {cmd}. Use `help {cmd}` to see available arguments.')
+					return
 				return self.execute_module(cmd, args_dict)
 			except ValueError as e:
 				print(f"Error: {e}")

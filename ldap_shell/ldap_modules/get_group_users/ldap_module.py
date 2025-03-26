@@ -25,7 +25,7 @@ class LdapShellModule(BaseLdapModule):
     LDAP_MATCHING_RULE_IN_CHAIN = '1.2.840.113556.1.4.1941'
     class ModuleArgs(BaseModel):
         group: Optional[str] = Field(
-            None,  # This argument is not required
+            ...,  # This argument is required
             description="Group name",
             arg_type=ArgumentType.GROUP
         )
