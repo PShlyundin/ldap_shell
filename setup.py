@@ -27,6 +27,7 @@ setup(
         'pycryptodome',
         'prompt_toolkit',
         'pydantic',
+        'oscrypto @ git+https://github.com/wbond/oscrypto.git@d5f3437',
     ],
     packages=find_packages(),
     include_package_data=True,
