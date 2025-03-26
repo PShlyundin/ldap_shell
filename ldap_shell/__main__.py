@@ -18,7 +18,6 @@ from ldap3.core.exceptions import LDAPSocketOpenError
 from pyasn1.codec.ber import decoder, encoder
 from pyasn1.type.univ import noValue
 
-from ldap_shell.impacket_ldap_shell import LdapShell
 from ldap_shell.krb5 import constants
 from ldap_shell.krb5.asn1 import TGS_REP, AP_REQ, seq_set, Authenticator
 from ldap_shell.krb5.ccache import CCache
