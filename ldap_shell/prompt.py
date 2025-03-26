@@ -126,7 +126,7 @@ class ModuleSuggester(AutoSuggest):
 		return Suggestion(suggestion)
 
 class Prompt:
-	def __init__(self, domain_dumper, client):
+	def __init__(self, domain_dumper, client, noninteractive=False):
 		self.domain_dumper = domain_dumper
 		self.client = client
 		self.prompt = '# '
@@ -134,7 +134,7 @@ class Prompt:
 		self.helper = Helper()
 		self.meta = self.helper.get_meta()
 		self.identchars = string.ascii_letters + string.digits + '_'
-
+		self.noninteractive = noninteractive
 		self.modules = ModuleLoader.load_modules()
 
 		self.completer = ModuleCompleter(self.modules, domain_dumper=self.domain_dumper, client=self.client)
@@ -303,7 +303,7 @@ class Prompt:
 
 	def cmdloop(self):
 		if self.noninteractive:
-			self.session = PromptSession(self.prompt,)
+			self.session = PromptSession(self.prompt, history=self.history)
 		else:
 			self.session = PromptSession(
 				self.prompt,

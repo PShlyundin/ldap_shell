@@ -25,6 +25,7 @@ from ldap_shell.krb5.kerberos_v5 import getKerberosTGT, getKerberosTGS
 from ldap_shell.krb5.types import Principal, Ticket, KerberosTime
 from ldap_shell.utils.spnego import SPNEGO_NegTokenInit, TypesMech
 from ldap_shell.utils import init_logging, parse_credentials
+from ldap_shell.prompt import Prompt
 
 log = logging.getLogger('ldap-shell')
 
@@ -125,11 +126,11 @@ def start_shell(options: argparse.Namespace):
     domain_dumper = ldapdomaindump.domainDumper(client.server, client, domain_dump_config)
 
     if options.non_interactive:
-            shell = LdapShell(
+            shell = Prompt(
                 domain_dumper, client, noninteractive=True
             )
     else:
-        shell = LdapShell(
+        shell = Prompt(
             domain_dumper, client
         )
     log.info('Starting interactive shell')
