@@ -127,7 +127,6 @@ class Prompt:
 		self.client = client
 		self.prompt = '# '
 		self.history = history
-		self.helper = Helper()
 		self.meta = self.helper.get_meta()
 		self.identchars = string.ascii_letters + string.digits + '_'
 		self.noninteractive = noninteractive
