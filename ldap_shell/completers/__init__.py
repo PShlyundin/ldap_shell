@@ -1,5 +1,4 @@
-from itertools import chain
-from typing import Union, List, Type
+from typing import Union, List
 from .base import BaseArgumentCompleter
 from .ad_object_completer import ADObjectCompleter, UserCompleter, ComputerCompleter, GroupCompleter, OUCompleter
 from ..ldap_modules.base_module import ArgumentType
