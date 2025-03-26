@@ -8,11 +8,11 @@ with open('README.md', mode='r', encoding='utf-8') as f:
 
 setup(
     name='ldap_shell',
-    version='1.0.0',
+    version='2.0.0',
     description='LDAP shell utility from Impacket',
     long_description=readme,
-    author='Riocool and saber-nyan',
-    author_email='z-Riocool@gmail.com',
+    author='Riocool',
+    author_email='Riocool33@gmail.com',
     url='https://github.com/PShlyundin/ldap_shell',
     install_requires=[
         'ldap3',
