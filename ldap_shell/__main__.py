@@ -23,7 +23,7 @@ from ldap_shell.krb5.asn1 import TGS_REP, AP_REQ, seq_set, Authenticator
 from ldap_shell.krb5.ccache import CCache
 from ldap_shell.krb5.kerberos_v5 import getKerberosTGT, getKerberosTGS
 from ldap_shell.krb5.types import Principal, Ticket, KerberosTime
-from ldap_shell.spnego import SPNEGO_NegTokenInit, TypesMech
+from ldap_shell.utils.spnego import SPNEGO_NegTokenInit, TypesMech
 from ldap_shell.utils import init_logging, parse_credentials
 
 log = logging.getLogger('ldap-shell')
