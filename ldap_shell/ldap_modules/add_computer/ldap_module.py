@@ -18,11 +18,21 @@ class LdapShellModule(BaseLdapModule):
     examples_text = """
     Example: Add computer with random password
     `add_computer SRV01$`
-    
+    ```
+    [INFO] Starting TLS connection...
+    [INFO] TLS established successfully
+    [INFO] Computer SRV01$ added successfully to CN=SRV01,CN=Computers,DC=domain,DC=local! Password: "6nJHsGxnVX5MfPK"
+
+    ```
     Example: Add computer with specific password
     `add_computer SRV01$ "P@ssw0rd123!"`
     ```
-    [INFO] Computer SRV01$ added successfully with password: P@ssw0rd123!
+    [INFO] Computer SRV01$ added successfully to CN=SRV01,CN=Computers,DC=domain,DC=local! Password: "P@ssw0rd123!"
+    ```
+    Example: Add computer to specific OU
+    `add_computer SRV01$ "P@ssw0rd123!" "OU=testComputers,DC=domain,DC=local"`
+    ```
+    [INFO] Computer SRV01$ added successfully to CN=SRV01,OU=testComputers,DC=domain,DC=local! Password: "P@ssw0rd123!"
     ```
     """
     module_type = "Misc"
@@ -112,9 +122,7 @@ class LdapShellModule(BaseLdapModule):
                 self.log.error(f'Failed to add computer: {error_msg}')
 
         except Exception as e:
-            import traceback
             self.log.error(f'Error adding computer: {str(e)}')
-            self.log.error(f'Полный трейсбек:\n{traceback.format_exc()}')
             if 'insufficient access rights' in str(e).lower():
                 self.log.info('Try relaying with LDAPS (--use-ldaps) or use elevated credentials')
 
