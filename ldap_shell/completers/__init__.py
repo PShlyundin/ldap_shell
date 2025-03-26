@@ -12,6 +12,8 @@ from .dn_completer import DNCompleter
 from .add_del_completer import AddDelCompleter
 from .mask_completer import MaskCompleter
 from .boolean_completer import BooleanCompleter
+from .action_completer import ActionCompleter
+
 COMPLETERS = {
         ArgumentType.DIRECTORY: DirectoryCompleter,
         ArgumentType.USER: UserCompleter,
@@ -24,7 +26,8 @@ COMPLETERS = {
         ArgumentType.DN: DNCompleter,
         ArgumentType.ADD_DEL: AddDelCompleter,
         ArgumentType.MASK: MaskCompleter,
-        ArgumentType.BOOLEAN: BooleanCompleter
+        ArgumentType.BOOLEAN: BooleanCompleter,
+        ArgumentType.ACTION: ActionCompleter
     }
 
 class CompleterFactory:

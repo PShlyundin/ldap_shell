@@ -18,7 +18,7 @@ class LdapShellModule(BaseLdapModule):
     [INFO] StartTLS established successfully!
     ```
     """
-    module_type = "Connection"
+    module_type = "Misc"
 
     class ModuleArgs(BaseModel):
         pass  # No arguments needed for this module
