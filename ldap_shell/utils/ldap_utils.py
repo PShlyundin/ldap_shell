@@ -86,7 +86,7 @@ class LdapUtils:
     
     @staticmethod
     def _search_with_retry(client, domain_dumper, name: str, attributes: list):
-        # Первоначальный поиск
+        # Initial search
         client.search(
             domain_dumper.root,
             f'(sAMAccountName={name})',
@@ -95,7 +95,7 @@ class LdapUtils:
         if client.entries:
             return client.entries[0]
         
-        # Если не найдено, пробуем добавить $ для компьютерных аккаунтов
+        # If not found, try adding $ for computer accounts
         if not name.endswith('$'):
             retry_name = f'{name}$'
             client.search(

@@ -32,7 +32,7 @@ setup(
     package_data={
         'ldap_shell': [
             'ldap_modules/*/ldap_module.py',
-            'ldap_modules/*/*',  # Включаем все файлы в подпапках модулей
+            'ldap_modules/*/*',  # Include all files in module subfolders
         ]
     },
     entry_points={

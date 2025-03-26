@@ -40,10 +40,10 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def __call__(self):
-        UF_ACCOUNT_DISABLE = 2  # Флаг для отключения учетной записи
+        UF_ACCOUNT_DISABLE = 2  # Flag for disabling account
 
         try:
-            # Поиск пользователя
+            # Search for user
             search_filter = f'(sAMAccountName={escape_filter_chars(self.args.username)})'
             if not self.client.search(self.domain_dumper.root, search_filter, 
                                     attributes=['objectSid', 'userAccountControl']):
@@ -60,10 +60,10 @@ class LdapShellModule(BaseLdapModule):
             self.log.info(f"Found user DN: {user_dn}")
             self.log.info(f"Original userAccountControl: {user_account_control}")
 
-            # Снятие флага отключения учетной записи
+            # Remove account disable flag
             new_user_account_control = user_account_control & ~UF_ACCOUNT_DISABLE
             
-            # Обновление атрибута userAccountControl
+            # Update userAccountControl attribute
             result = self.client.modify(user_dn, 
                                       {'userAccountControl': (ldap3.MODIFY_REPLACE, [new_user_account_control])})
 

@@ -11,29 +11,29 @@ class CommandCompleter(BaseArgumentCompleter):
         list_modules = ModuleLoader.list_modules()
         completions = []
         
-        # Преобразуем текущее слово в нижний регистр для сравнения
+        # Convert current word to lowercase for comparison
         current_word_lower = current_word.lower()
         
-        # Создаем список кортежей (модуль, коэффициент схожести)
+        # Create list of tuples (module, similarity ratio)
         matches = []
         for module in list_modules:
-            # Проверяем вхождение без учета регистра
+            # Check inclusion case-insensitive
             module_lower = module.lower()
             
-            # Вычисляем коэффициент схожести
+            # Calculate similarity ratio
             ratio = SequenceMatcher(None, current_word_lower, module_lower).ratio()
             
-            # Если текущее слово является подстрокой модуля или наоборот,
-            # или коэффициент схожести больше 0.5
+            # If current word is substring of module or vice versa,
+            # or similarity ratio is greater than 0.5
             if (current_word_lower in module_lower or 
                 module_lower in current_word_lower or 
                 ratio > 0.5):
                 matches.append((module, ratio))
         
-        # Сортируем по коэффициенту схожести
+        # Sort by similarity ratio
         matches.sort(key=lambda x: x[1], reverse=True)
         
-        # Создаем completion для каждого совпадения
+        # Create completion for each match
         for module, ratio in matches:
             completions.append(
                 Completion(
@@ -44,4 +44,3 @@ class CommandCompleter(BaseArgumentCompleter):
             )
             
         return completions
-        

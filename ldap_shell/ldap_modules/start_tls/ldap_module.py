@@ -34,7 +34,7 @@ class LdapShellModule(BaseLdapModule):
 
     def __call__(self):
         try:
-            # Проверяем, не установлено ли уже TLS соединение
+            # Check if TLS connection is already established
             if not self.client.tls_started and not self.client.server.ssl:
                 self.log.info('Sending StartTLS command...')
                 if not self.client.start_tls():

@@ -12,7 +12,7 @@ log = logging.getLogger('ldap-shell.utils')
 # Compat
 PY3 = True
 
-# Инициализация истории команд
+# Command history initialization
 history = FileHistory(os.path.expanduser('~/.ldap_shell_history'))
 
 

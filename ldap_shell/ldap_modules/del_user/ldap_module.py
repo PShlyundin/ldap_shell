@@ -38,7 +38,7 @@ class LdapShellModule(BaseLdapModule):
 
     def __call__(self):
         try:
-            # Поиск пользователя
+            # Search for user
             search_filter = f'(sAMAccountName={escape_filter_chars(self.args.username)})'
             if not self.client.search(self.domain_dumper.root, search_filter, attributes=['distinguishedName']):
                 self.log.error(f"User {self.args.username} not found in domain")
@@ -51,7 +51,7 @@ class LdapShellModule(BaseLdapModule):
             user_dn = self.client.entries[0].entry_dn
             self.log.info(f"Found user DN: {user_dn}")
 
-            # Удаление пользователя
+            # Delete user
             result = self.client.delete(user_dn)
 
             if result:

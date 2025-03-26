@@ -38,4 +38,3 @@ class ModuleLoader:
 		examples_text = module.examples_text
 		del module
 		return examples_text
-	

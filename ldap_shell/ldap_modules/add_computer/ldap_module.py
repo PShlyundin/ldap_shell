@@ -80,7 +80,7 @@ class LdapShellModule(BaseLdapModule):
         computer_hostname = self.args.computer_name[:-1]
         
         try:
-            # Проверка существования объекта
+            # Check if object exists
             search_filter = f'(sAMAccountName={escape_filter_chars(self.args.computer_name)})'
             if self.client.search(self.domain_dumper.root, search_filter, attributes=['distinguishedName']):
                 existing_dns = [entry.entry_dn for entry in self.client.entries]
@@ -125,4 +125,3 @@ class LdapShellModule(BaseLdapModule):
             self.log.error(f'Error adding computer: {str(e)}')
             if 'insufficient access rights' in str(e).lower():
                 self.log.info('Try relaying with LDAPS (--use-ldaps) or use elevated credentials')
-

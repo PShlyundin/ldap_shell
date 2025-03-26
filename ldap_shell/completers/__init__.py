@@ -41,7 +41,7 @@ class CompleterFactory:
         Creates a completer or multiple completers based on argument type(s)
         Returns a MultiCompleter if multiple types are provided
         """
-        # Преобразуем одиночный тип в список для единообразной обработки
+        # Convert single type to list for uniform processing
         arg_types = [arg_type] if not isinstance(arg_type, list) else arg_type
         
         completers = []
@@ -66,27 +66,27 @@ class MultiCompleter(BaseArgumentCompleter):
         self.max_total_suggestions = 20
         
     def get_completions(self, document, complete_event, current_word: str):
-        # Получаем все возможные дополнения от каждого комплитера
+        # Get all possible completions from each completer
         all_completions = defaultdict(list)
         for completer in self.completers:
             completions = list(completer.get_completions(document, complete_event, current_word))
-            if completions:  # Добавляем только если есть результаты
+            if completions:  # Add only if there are results
                 all_completions[completer] = completions
         if not all_completions:
             return None
             
-        # Вычисляем, сколько подсказок брать от каждого комплитера
+        # Calculate how many suggestions to take from each completer
         num_completers = len(all_completions)
         base_per_completer = max(1, self.max_total_suggestions // num_completers)
         remaining = self.max_total_suggestions - (base_per_completer * num_completers)
-        # Распределяем подсказки
+        # Distribute suggestions
         for completer, completions in all_completions.items():
-            # Если это последний комплитер, отдаем ему оставшиеся слоты
+            # If this is the last completer, give it the remaining slots
             if remaining > 0 and completer == list(all_completions.keys())[-1]:
                 num_suggestions = base_per_completer + remaining
             else:
                 num_suggestions = base_per_completer
                 
-            # Выдаем подсказки для текущего комплитера
+            # Yield suggestions for current completer
             for completion in completions[:num_suggestions]:
                 yield completion

@@ -69,7 +69,7 @@ class LdapShellModule(BaseLdapModule):
             self.log.info('TLS established successfully')
 
         try:
-            # Проверка существования пользователя
+            # Check if user exists
             search_filter = f'(sAMAccountName={escape_filter_chars(self.args.username)})'
             if self.client.search(self.domain_dumper.root, search_filter, attributes=['distinguishedName']):
                 if self.client.entries:

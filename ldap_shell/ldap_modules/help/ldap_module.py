@@ -9,7 +9,7 @@ import importlib
 from colorama import init, Fore, Back, Style
 import textwrap
 from ldap_shell.utils.module_loader import ModuleLoader
-# Инициализируем colorama для кроссплатформенной поддержки
+# Initialize colorama for cross-platform support
 init()
 
 class LdapShellModule(BaseLdapModule):
@@ -46,20 +46,20 @@ class LdapShellModule(BaseLdapModule):
         in_code_block = False
         
         for line in lines:
-            # Заголовки
+            # Headers
             if line.strip().startswith('# '):
                 result.append(f"{Fore.CYAN}{line.strip().strip('# ')}{Style.RESET_ALL}")
             elif line.strip().startswith('## '):
                 result.append(f"{Fore.BLUE}{line.strip().strip('## ')}{Style.RESET_ALL}")
             elif line.strip().startswith('### '):
                 result.append(f"{Fore.GREEN}{line.strip().strip('### ')}{Style.RESET_ALL}")
-            # Блоки кода
+            # Code blocks
             elif line.strip().startswith('```'):
                 in_code_block = not in_code_block
                 continue
             elif in_code_block:
                 result.append(f"{Back.BLACK}{Fore.WHITE}{line}{Style.RESET_ALL}")
-            # Инлайн код
+            # Inline code
             else:
                 while '`' in line:
                     start = line.find('`')
@@ -85,7 +85,7 @@ class LdapShellModule(BaseLdapModule):
                 helper_modules[module_name]['type'] = modules[module].module_type
             helper_modules[module_name]['args'] = modules[module].get_args_required()
 
-        # Группируем модули по главам
+        # Group modules by chapters
         chapters = {}
         for module_name in helper_modules:
             if helper_modules[module_name].get('type'):
@@ -103,12 +103,12 @@ class LdapShellModule(BaseLdapModule):
                 module = ModuleLoader.load_module(self.args.command)
                 module_class = module
                 
-                # Собираем информацию о модуле
+                # Gather module information
                 header = module_class.__doc__ or "No description available"
                 help_text = module_class.help_text
                 examples = module_class.examples_text
                 args_schema = module_class.ModuleArgs.model_json_schema()
-                # Формируем текст
+                # Format text
                 help_md = f"""
 `{self.args.command} {' '.join(helper_modules[self.args.command]['args'])}`
 
@@ -120,7 +120,7 @@ class LdapShellModule(BaseLdapModule):
 
 # Arguments
 """
-                # Добавляем информацию об аргументах
+                # Add argument information
                 for arg in module_class.get_arguments():
                     name = arg.name
                     required = arg.required
@@ -132,10 +132,10 @@ class LdapShellModule(BaseLdapModule):
     - Required: {required}
 """
                 help_md += f"\n# Examples"
-                # Добавляем примеры использования
+                # Add usage examples
                 if examples:
                     help_md += f"\n{textwrap.dedent(examples.lstrip('\n'))}"
-                # Выводим 
+                # Output
                 self.print_markdown(help_md)
 
             else:
@@ -143,7 +143,7 @@ class LdapShellModule(BaseLdapModule):
                 return
         
         else:
-            # Выводим в нужном формате
+            # Output in required format
             for chapter, commands in chapters.items():
                 print(f"\n{chapter}")
                 for command in sorted(commands):

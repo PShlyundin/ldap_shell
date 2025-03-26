@@ -18,7 +18,7 @@ class DNCompleter(BaseArgumentCompleter):
 
         text = document.text_before_cursor.replace('"', '')
         
-        # Получаем кеш из менеджера
+        # Get cache from manager
         cached_objects = self.cache_manager.get_cache(self.__class__.__name__)
         if cached_objects is None:
             cached_objects = self._get_ad_objects()
@@ -30,7 +30,7 @@ class DNCompleter(BaseArgumentCompleter):
             word_before_cursor = text.split()[-1] if text.split() else ''
 
         for obj in cached_objects:
-            # Проверяем как identifier, так и DN
+            # Check both identifier and DN
             if (word_before_cursor.lower() in obj['identifier'].lower() or
                 word_before_cursor.lower() in obj['dn'].lower()):
                 
@@ -67,7 +67,7 @@ class DNCompleter(BaseArgumentCompleter):
             'gpo': 'ansibrightblue'
         }
 
-        # Используем встроенный метод для пейджинации
+        # Use built-in method for pagination
         search_generator = self.ldap.extend.standard.paged_search(
             search_base=self.domain_dumper.root,
             search_filter='(objectClass=*)',
@@ -84,7 +84,7 @@ class DNCompleter(BaseArgumentCompleter):
             dn = entry['dn']
             obj_classes = entry['attributes'].get('objectClass', [])
             
-            # Определяем тип
+            # Determine type
             if 'user' in obj_classes:
                 obj_type = 'User'
                 identifier = entry['attributes'].get('sAMAccountName', [''])
@@ -107,7 +107,7 @@ class DNCompleter(BaseArgumentCompleter):
                 highlight_color = COLOR_MAPPING['domain_root']
             elif 'groupPolicyContainer' in obj_classes:
                 obj_type = 'GPO'
-                # Получаем displayName или cn, учитывая возможное отсутствие атрибутов
+                # Get displayName or cn, considering possible missing attributes
                 display_name = entry['attributes'].get('displayName', [None])
                 cn_value = entry['attributes'].get('cn', [None])
                 identifier = display_name or cn_value or dn.split(',')[0].split('=')[1]

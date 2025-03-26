@@ -13,7 +13,7 @@ class LdapShellModule(BaseLdapModule):
     Dump domain information to current directory
     `dump`
     Dump domain information to /tmp/
-    `dump -o /tmp/`
+    `dump /tmp/`
     """
     module_type = "Get Info"
 

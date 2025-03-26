@@ -18,17 +18,17 @@ class AttributesCompleter(BaseArgumentCompleter):
 	]
     
     def get_completions(self, document: Document, complete_event, current_word: str) -> list[Completion]:
-        # Разбиваем текущий ввод на части по запятой
+        # Split current input by comma
         if ',' in current_word:
             prefix = ','.join(current_word.split(',')[:-1]) + ','
             current_word = current_word.split(',')[-1].strip()
         else:
             prefix = ''
             
-        # Создаем словарь с описаниями атрибутов
+        # Create dictionary with attribute descriptions
         meta_dict = {attr: "LDAP attribute" for attr in self.COMMON_LDAP_ATTRIBUTES}
         
-        # Используем FuzzyWordCompleter для атрибутов
+        # Use FuzzyWordCompleter for attributes
         completer = FuzzyWordCompleter(
             words=self.COMMON_LDAP_ATTRIBUTES,
             meta_dict=meta_dict

@@ -31,7 +31,7 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def __call__(self):
-        # Ищем группу по имени
+        # Search for group by name
         self.client.search(
             self.domain_dumper.root,
             f'(&(objectClass=group)(sAMAccountName={self.args.group_name}))',
@@ -45,8 +45,8 @@ class LdapShellModule(BaseLdapModule):
 
         group_dn = self.client.entries[0].distinguishedName.value
 
-        # Удаляем группу
+        # Delete the group
         if self.client.delete(group_dn):
             self.log.info(f"Group {self.args.group_name} deleted successfully")
         else:
-            self.log.error(f"Failed to delete group {self.args.group_name}: {self.client.result}") 
+            self.log.error(f"Failed to delete group {self.args.group_name}: {self.client.result}")

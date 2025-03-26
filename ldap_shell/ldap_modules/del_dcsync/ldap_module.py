@@ -70,15 +70,15 @@ class LdapShellModule(BaseLdapModule):
         for ace in sd['Dacl'].aces:
             if ace['Ace']['Sid'].formatCanonical() == user_sid:
                 try:
-                    # Преобразуем бинарный ObjectType в строку
+                    # Convert binary ObjectType to string
                     object_type = ace['Ace']['ObjectType']
-                    if object_type in dcsync_guids:  # <-- прямое сравнение бинарных данных
+                    if object_type in dcsync_guids:  # <-- direct binary data comparison
                         continue
                 except AttributeError:
                     pass
             new_aces.append(ace)
 
-        # Применяем изменения
+        # Apply changes
         sd['Dacl'].aces = new_aces
         self.client.modify(
             target_dn,

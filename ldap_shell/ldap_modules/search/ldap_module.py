@@ -135,11 +135,11 @@ class LdapShellModule(BaseLdapModule):
             
             for key, value in formatted_entry.items():
                 if isinstance(value, list):
-                    # Проверяем, не пустой ли список
+                    # Check if list is empty
                     if not value:
                         print(f"{key.ljust(max_key_length)}: ")
                     else:
-                        # Многострочный вывод для списков
+                        # Multi-line output for lists
                         print(f"{key.ljust(max_key_length)}: {value[0]}")
                         for v in value[1:]:
                             print(f"{' ' * max_key_length}  {v}")

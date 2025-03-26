@@ -42,7 +42,7 @@ class LdapShellModule(BaseLdapModule):
             self.args.computer_name = self.args.computer_name + '$'
 
         try:
-            # Поиск компьютера
+            # Search for computer
             search_filter = f'(sAMAccountName={escape_filter_chars(self.args.computer_name)})'
             if not self.client.search(self.domain_dumper.root, search_filter, attributes=['distinguishedName']):
                 self.log.error(f"Computer {self.args.computer_name} not found in domain")
@@ -55,7 +55,7 @@ class LdapShellModule(BaseLdapModule):
             computer_dn = self.client.entries[0].entry_dn
             self.log.info(f"Found computer DN: {computer_dn}")
 
-            # Удаление компьютера
+            # Delete computer
             result = self.client.delete(computer_dn)
 
             if result:

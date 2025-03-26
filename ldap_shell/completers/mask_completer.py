@@ -10,7 +10,7 @@ class MaskCompleter(BaseArgumentCompleter):
         
         options = [
             "GenericAll",
-            "AllExtendedRights",
+            "AllExtendedRights", 
             "GenericWrite",
             "WriteOwner",
             "WriteDacl",

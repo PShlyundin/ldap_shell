@@ -127,4 +127,3 @@ class LdapShellModule(BaseLdapModule):
             self.log.error(f'Error managing SPNs: {str(e)}')
             if 'insufficient access rights' in str(e).lower():
                 self.log.info('Try relaying with LDAPS (--use-ldaps) or use elevated credentials')
-

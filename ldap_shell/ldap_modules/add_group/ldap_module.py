@@ -40,7 +40,7 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def __call__(self):
-        # Проверяем, существует ли уже группа с таким именем
+        # Check if group already exists
         self.client.search(
             self.domain_dumper.root,
             f'(&(objectClass=group)(sAMAccountName={self.args.group_name}))',
@@ -52,13 +52,13 @@ class LdapShellModule(BaseLdapModule):
             self.log.error(f"Group {self.args.group_name} already exists")
             return
 
-        # Формируем DN для новой группы
+        # Form DN for new group
         if self.args.target_dn:
             group_dn = f"CN={self.args.group_name},{self.args.target_dn}"
         else:
             group_dn = f"CN={self.args.group_name},CN=Users,{self.domain_dumper.root}"
 
-        # Атрибуты для создания группы
+        # Attributes for group creation
         group_attributes = {
             'objectClass': ['top', 'group'],
             'cn': self.args.group_name,
@@ -68,8 +68,8 @@ class LdapShellModule(BaseLdapModule):
             'description': f"Group created via ldap_shell"
         }
 
-        # Создаем группу
+        # Create group
         if self.client.add(group_dn, attributes=group_attributes):
             self.log.info(f"Group {self.args.group_name} created successfully at {group_dn}")
         else:
-            self.log.error(f"Failed to create group {self.args.group_name}: {self.client.result}") 
+            self.log.error(f"Failed to create group {self.args.group_name}: {self.client.result}")

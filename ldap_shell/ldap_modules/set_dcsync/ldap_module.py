@@ -75,4 +75,3 @@ class LdapShellModule(BaseLdapModule):
             self.log.info(f'DACL modified successfully! {user_name} now has DS-Replication privilege and can perform DCSync attack!')
         else:
             self.process_error_response()
-

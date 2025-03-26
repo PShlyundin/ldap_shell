@@ -13,8 +13,14 @@ class LdapShellModule(BaseLdapModule):
     examples_text = """
     Example 1
     `template`
+    ```
+    [INFO] Template module any output
+    ```
     Example 2
     `template argument1 argument2`
+    ```
+    [INFO] Template module any output
+    ```
     """
     module_type = "Get Info" # Get Info, Abuse ACL, Misc and Other.
 
@@ -34,6 +40,7 @@ class LdapShellModule(BaseLdapModule):
         Example:
             class ModuleArgs(BaseModel):
                 user: str = Field(
+                    ..., # This argument is required
                     description="Target AD user",
                     arg_type=ArgumentType.USER
                 )
@@ -67,4 +74,3 @@ class LdapShellModule(BaseLdapModule):
             self.log.info(f"Current user DN: {user_dn}")
         else:
             self.log.error("Failed to get current user DN")
-

@@ -11,7 +11,7 @@ class AceUtils:
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
         acedata['Mask']['Mask'] = 983551  # Full control
         
-        # Обрабатываем как строковый SID, так и бинарный формат
+        # Handle both string SID and binary format
         if isinstance(sid, str):
             acedata['Sid'] = ldaptypes.LDAP_SID()
             acedata['Sid'].fromCanonical(sid)

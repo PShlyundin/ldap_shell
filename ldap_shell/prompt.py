@@ -66,32 +66,32 @@ class ModuleCompleter(Completer):
 			yield from completer.get_completions(document, complete_event, current_word)
 
 class ModuleSuggester(AutoSuggest):
-	"""Предлагает подсказки из истории и аргументов модуля"""
+	"""Suggests hints from history and module arguments"""
 	
 	def __init__(self, modules, history):
 		self.modules = modules
-		self.history = history  # Должен быть prompt_toolkit.history.History
+		self.history = history  # Should be prompt_toolkit.history.History
 		
 	def get_suggestion(self, buffer, document) -> Suggestion | None:
 		text = document.text_before_cursor
 		
-		# 1. Проверяем историю
+		# 1. Check history
 		history_suggestion = self._get_history_suggestion(text)
 		if history_suggestion:
 			return history_suggestion
 			
-		# 2. Предлагаем аргументы модуля
+		# 2. Suggest module arguments
 		return self._get_module_suggestion(text)
 	
 	def _get_history_suggestion(self, text: str) -> Suggestion | None:
-		"""Ищем последний использованный аргумент для текущей команды"""
+		"""Find last used argument for current command"""
 		if not text.strip():
 			return None
 
-		# Получаем базовую команду (первое слово)
+		# Get base command (first word)
 		base_command = text.split()[0]
 		
-		# Ищем в истории последнюю полную команду с этим базовым именем
+		# Search history for last full command with this base name
 		last_full_command = None
 		for entry in reversed(list(self.history.get_strings())):
 			if entry.startswith(base_command + ' '):
@@ -101,7 +101,7 @@ class ModuleSuggester(AutoSuggest):
 		if not last_full_command:
 			return None
 		
-		# Сравниваем текущий ввод с исторической записью
+		# Compare current input with history entry
 		if last_full_command.startswith(text):
 			remaining_part = last_full_command[len(text):]
 			return Suggestion(remaining_part)
@@ -109,7 +109,7 @@ class ModuleSuggester(AutoSuggest):
 		return None
 	
 	def _get_module_suggestion(self, text: str) -> Suggestion | None:
-		"""Стандартная подсказка аргументов модуля"""
+		"""Standard module argument suggestion"""
 		words = text.split()
 		if len(words) == 0 or words[0] not in self.modules:
 			return None
@@ -148,27 +148,27 @@ class Prompt:
 			"""Handle Enter press"""
 			b = event.current_buffer
 
-			# Если есть активное состояние автодополнения
+			# If there is active autocompletion state
 			if b.complete_state and b.complete_state.current_completion:
 				completion = b.complete_state.current_completion
 
-				# Получаем список команд
+				# Get list of commands
 				available_commands = ModuleLoader.list_modules()
 
-				# Если completion - это команда
+				# If completion is a command
 				if completion.text in available_commands and not ' ' in b.document.text_before_cursor:
-					# Удаляем весь текст
-					b.delete(len(b.document.text_after_cursor))  # сначала после курсора
-					b.delete_before_cursor(len(b.document.text_before_cursor))  # затем до курсора
-					# Вставляем команду
+					# Delete all text
+					b.delete(len(b.document.text_after_cursor))  # first after cursor
+					b.delete_before_cursor(len(b.document.text_before_cursor))  # then before cursor
+					# Insert command
 					b.insert_text(completion.text + ' ')
 				else:
-					# Для аргументов: находим последний пробел или запятую перед курсором
+					# For arguments: find last space or comma before cursor
 					text = b.document.text
 					cursor_position = b.document.cursor_position
 					text_before_cursor = text[:cursor_position]
 
-					# Находим позицию последнего разделителя (пробел или запятая)
+					# Find position of last separator (space or comma)
 					if text_before_cursor.count('"') % 2 == 1:
 						quoted_words = shlex.split(text_before_cursor+'"')
 					else:
@@ -186,21 +186,21 @@ class Prompt:
 					last_separator = len(text_before_cursor) - len(del_word)
 
 					if last_separator >= 0:
-						# Удаляем текст от последнего разделителя до курсора
+						# Delete text from last separator to cursor
 						chars_to_delete = cursor_position - (last_separator)
 						if chars_to_delete > 0:
 							b.delete_before_cursor(chars_to_delete)
 					else:
-						# Если разделитель не найден, удаляем весь текст до курсора
+						# If no separator found, delete all text before cursor
 						b.delete_before_cursor(len(text_before_cursor))
 
 					b.insert_text(completion.text)
 				
-				# Очищаем состояние автодополнения
+				# Clear autocompletion state
 				b.complete_state = None
 				return
 
-			# Если нет активного автодополнения - выполняем команду
+			# If no active autocompletion - execute command
 			event.current_buffer.validate_and_handle()	
 
 		@self.kb.add('tab')
@@ -240,11 +240,11 @@ class Prompt:
 	def _parse_arg_string(self, module_name: str, arg_string: str) -> dict:
 		args_dict = {}
 		
-		# Используем shlex для корректного разбора строки с учетом кавычек
+		# Use shlex for proper string parsing with quotes
 		try:
 			args = shlex.split(arg_string)
 		except ValueError as e:
-			# Если есть незакрытые кавычки, пытаемся обработать как есть
+			# If there are unclosed quotes, try to process as is
 			print(f"Warning: {e}")
 			args = arg_string.strip().split()
 		
