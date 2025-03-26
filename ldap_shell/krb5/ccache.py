@@ -10,7 +10,7 @@ from ldap_shell.krb5 import types, crypto, constants
 from ldap_shell.krb5.asn1 import AS_REP, seq_set, TGS_REP, Ticket, EncASRepPart, EncTGSRepPart, KRB_CRED, \
     EncKrbCredPart, KrbCredInfo, seq_set_iter
 from ldap_shell.krb5.types import KerberosTime
-from ldap_shell.structure import Structure
+from ldap_shell.utils.structure import Structure
 from ldap_shell.utils import b
 
 log = logging.getLogger('ldap-shell.ccache')
