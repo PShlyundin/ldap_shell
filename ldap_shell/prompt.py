@@ -1,14 +1,10 @@
 from prompt_toolkit.completion import Completion
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
-from prompt_toolkit.history import FileHistory
 from prompt_toolkit.shortcuts import CompleteStyle
 import string
-from ldap_shell.helper import Helper
-import os
 import logging
 from prompt_toolkit.completion import Completer
-from ldap_shell.ldap_modules.base_module import ArgumentType
 from prompt_toolkit.key_binding import KeyBindings
 from ldap_shell.completers import CompleterFactory
 from ldap_shell.utils.module_loader import ModuleLoader
