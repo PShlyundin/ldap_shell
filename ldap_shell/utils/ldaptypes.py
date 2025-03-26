@@ -4,7 +4,7 @@ https://msdn.microsoft.com/en-us/library/cc230366.aspx
 """
 from struct import unpack, pack
 
-from ldap_shell.structure import Structure
+from ldap_shell.utils.structure import Structure
 
 RECALC_ACE_SIZE = True
 """
