@@ -62,6 +62,11 @@ class LdapUtils:
         return len(client.entries) > 0
 
     @staticmethod
+    def get_domain_name(dn: str) -> str:
+        """Get domain name from DN"""
+        return re.sub(',DC=', '.', dn[dn.find('DC='):], flags=re.I)[3:]
+
+    @staticmethod
     def get_info_by_dn(client, domain_dumper, dn: str) -> Optional[tuple[bytes, str]]:
         """Get info by DN"""
         client.search(
