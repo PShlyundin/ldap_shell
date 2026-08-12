@@ -60,6 +60,26 @@ def test_dns_a_record_roundtrip():
     raise AssertionError('expected ValueError')
 
 
+def test_dns_cname_record_roundtrip():
+    from ldap_shell.ldap_modules.set_dns.ldap_module import (
+        encode_dns_count_name,
+        pack_dns_cname,
+        unpack_dns_type,
+    )
+
+    blob = pack_dns_cname('server.domain.local')
+    assert unpack_dns_type(blob) == 5
+    encoded = encode_dns_count_name('server.domain.local')
+    assert encoded[1] == 3
+    assert b'server' in encoded
+    assert encoded.endswith(b'\x00')
+    try:
+        encode_dns_count_name('')
+    except ValueError:
+        return
+    raise AssertionError('expected ValueError')
+
+
 def test_badsuccessor_module_surface():
     source = (ROOT / 'ldap_shell/ldap_modules/set_badsuccessor/ldap_module.py').read_text()
     assert 'msDS-ManagedAccountPrecededByLink' in source
