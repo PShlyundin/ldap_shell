@@ -34,6 +34,7 @@ setup(
     ],
     extras_require={
         'mcp': ['mcp>=1.2'],
+        'epa': ['ldap3-bleeding-edge>=2.10.1'],
         'dev': [
             'pytest>=8.0',
             'pytest-cov>=5.0',

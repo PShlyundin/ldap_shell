@@ -416,6 +416,11 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
                             client_cert: Optional[str] = None,
                             client_key: Optional[str] = None) -> ldap3.Connection:
     user_domain = fr'{domain}\{username}'
+    features = _connection_features()
+    log.debug(
+        'ldap3 features: channel_binding=%s session_security=%s',
+        features['channel_binding'], features['session_security'],
+    )
     if client_cert:
         ldaps = True
     client_args = (
@@ -569,7 +574,7 @@ def _signing_followup(over_tls: bool, result) -> str:
     if 'channel binding' in text or 'epa' in text:
         return (
             '. DC requires channel binding (EPA). This ldap3 build cannot send '
-            'channel binding tokens'
+            'channel binding tokens; pip install "ldap_shell[epa]"'
         )
     return '. DC likely requires LDAP signing or channel binding over TLS'
 
