@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_version_is_3():
     setup = (ROOT / 'setup.py').read_text()
     pyproject = (ROOT / 'pyproject.toml').read_text()
-    assert "version='3.0.0'" in setup
-    assert 'version = "3.0.0"' in pyproject
+    assert "version='3.1.0'" in setup
+    assert 'version = "3.1.0"' in pyproject
 
 
 def test_module_loader_includes_new_commands():

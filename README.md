@@ -2,7 +2,7 @@
 
 Interactive and **inline** LDAP client for Active Directory enumeration and ACL abuse. Fork of Impacket's ldap_shell.
 
-Version **3.0.0**. Requires **Python 3.10+**.
+Version **3.1.0**. Requires **Python 3.10+**.
 
 If a DC rejects plaintext LDAP because signing or channel binding is required, the client tries **StartTLS**, then **LDAPS**. If the installed `ldap3` supports `session_security` / `channel_binding`, those are turned on automatically. Stock `ldap3` 2.9.1 cannot send EPA tokens. `pip install ".[epa]"` swaps in `ldap3-bleeding-edge`, which can. Use `-use-ldaps` when you already know the DC is locked down.
 
