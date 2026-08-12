@@ -69,7 +69,7 @@ class LdapShellModule(BaseLdapModule):
         try:
             self.client.search(
                 self.domain_dumper.root,
-                f'(distinguishedName={self.args.target})',
+                LdapUtils.dn_filter(self.args.target),
                 attributes=['nTSecurityDescriptor'],
                 controls=ldap3.protocol.microsoft.security_descriptor_control(sdflags=0x01)
             )

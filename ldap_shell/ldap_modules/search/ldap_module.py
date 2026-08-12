@@ -116,7 +116,12 @@ class LdapShellModule(BaseLdapModule):
         if not attributes:
             attributes = ['*']
         try:
-            self.client.search(self.domain_dumper.root, search_query, attributes=attributes)
+            self.client.search(
+                self.domain_dumper.root,
+                search_query,
+                attributes=attributes,
+                paged_size=1000
+            )
         except Exception as e:
             self.log.error(f"Error searching: {e}")
             return
