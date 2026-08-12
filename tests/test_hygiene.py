@@ -14,3 +14,11 @@ def test_get_ntlm_uses_cryptography_pkcs12():
     source = (ROOT / 'ldap_shell/ldap_modules/get_ntlm/ldap_module.py').read_text()
     assert 'serialize_key_and_certificates' in source
     assert 'crypto.PKCS12()' not in source
+
+
+def test_set_keycred_is_persist_not_roast():
+    source = (ROOT / 'ldap_shell/ldap_modules/set_keycred/ldap_module.py').read_text()
+    assert 'msDS-KeyCredentialLink' in source
+    assert 'GETPAC' not in source
+    assert "action == 'list'" in source
+    assert "action == 'del'" in source

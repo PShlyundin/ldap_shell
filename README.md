@@ -50,6 +50,7 @@ ldap_shell domain.local/user:password -c "get_writable" -c whoami
 ldap_shell domain.local/user:password --json whoami
 ldap_shell domain.local/user:password get_kerberoast
 ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.local
+ldap_shell domain.local/user:password set_keycred john add
 ```
 
 `-non-interactive` reads commands from stdin (one per line).
@@ -93,6 +94,7 @@ Abuse ACL
     del_user_from_group user group - Remove a user from a group
     get_acl target - Read and pretty-print a DACL
     get_ntlm target - Shadow Credentials -> NT hash
+    set_keycred target action [device_id] - Persist/list/remove KeyCredentials
     get_writable [trustee] - Objects with interesting write rights
     set_attr target attribute action [value] - Generic attribute modify
     set_dcsync target - Grant DCSync
