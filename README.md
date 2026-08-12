@@ -53,6 +53,7 @@ ldap_shell domain.local/user:password search "(sAMAccountName=admin)" sAMAccount
 ldap_shell domain.local/user:password get_acl admin
 ldap_shell domain.local/user:password -c "get_writable" -c whoami
 ldap_shell domain.local/user:password --json whoami
+# --json / MCP `run` set ok=false when the command logs [ERROR]
 ldap_shell domain.local/user:password get_kerberoast
 ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.local
 ldap_shell domain.local/user:password set_keycred john add

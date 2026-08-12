@@ -35,6 +35,14 @@ class _ListHandler(logging.Handler):
         self.records.append(self.format(record))
 
 
+def _last_error_line(records: List[str]) -> Optional[str]:
+    """Return the last `[ERROR] …` log line without the level prefix."""
+    for line in reversed(records or []):
+        if line.startswith('[ERROR]'):
+            return line.split(']', 1)[-1].strip()
+    return None
+
+
 class CommandRunner:
     """Parse and execute ldap_shell module commands without a TTY."""
 
@@ -138,8 +146,7 @@ class CommandRunner:
         stdout = io.StringIO()
         log_handler = _ListHandler()
         logger = logging.getLogger('ldap-shell')
-        if capture:
-            logger.addHandler(log_handler)
+        logger.addHandler(log_handler)
 
         try:
             module = self.modules[cmd](
@@ -160,15 +167,19 @@ class CommandRunner:
                 print(traceback.format_exc())
             return CommandResult(ok=False, command=raw, error=str(exc), output=error)
         finally:
-            if capture:
-                logger.removeHandler(log_handler)
+            logger.removeHandler(log_handler)
 
-        if returned is False:
-            output = '\n'.join(log_handler.records + [stdout.getvalue()]).strip()
-            return CommandResult(ok=False, command=raw, output=output, error='Command failed')
+        output = '\n'.join(part for part in (*log_handler.records, stdout.getvalue()) if part).strip()
+        error_text = _last_error_line(log_handler.records)
+        if returned is False or (returned is None and error_text):
+            return CommandResult(
+                ok=False,
+                command=raw,
+                output=output,
+                error=error_text or 'Command failed',
+            )
 
         prompt = returned if isinstance(returned, str) else None
-        output = '\n'.join(part for part in (*log_handler.records, stdout.getvalue()) if part).strip()
         return CommandResult(ok=True, command=raw, output=output, prompt=prompt, data=returned)
 
     def execute_many(self, lines: List[str], capture: bool = False) -> List[CommandResult]:

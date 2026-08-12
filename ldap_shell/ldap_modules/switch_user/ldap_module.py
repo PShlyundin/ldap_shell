@@ -113,6 +113,10 @@ class LdapShellModule(BaseLdapModule):
             return False
 
         if not password:
+            import sys
+            if not sys.stdin.isatty():
+                self.log.error('Password required (or pass a .pfx/.pem path)')
+                return False
             password = getpass.getpass()
 
         domain = current_domain(self.client)

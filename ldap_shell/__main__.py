@@ -87,7 +87,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     parser.add_argument(
         '-pfx', action='store', metavar='file',
-        help='PKCS#12 client certificate for LDAPS SASL EXTERNAL bind'
+        help='PKCS#12 client certificate (PKINIT by default, or SASL EXTERNAL)'
     )
     parser.add_argument(
         '-pfx-pass', action='store', metavar='password', dest='pfx_pass',
@@ -135,7 +135,13 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument('-l', '--lootdir', action='store', type=pathlib.Path, metavar='LOOTDIR', default='.',
                         help='loot directory in which gathered loot such as domain dumps will be stored '
                              '(default: current directory)')
-    return parser.parse_args(argv)
+    options, unknown = parser.parse_known_args(argv)
+    if unknown:
+        if options.inline_command:
+            options.inline_args = list(options.inline_args or []) + unknown
+        else:
+            parser.error('unrecognized arguments: ' + ' '.join(unknown))
+    return options
 
 
 def collect_inline_commands(options: argparse.Namespace) -> list:
@@ -198,8 +204,10 @@ def main(argv=None) -> None:
 
     inline_commands = collect_inline_commands(options)
     if options.mcp:
+        if inline_commands:
+            log.warning('Ignoring inline commands because --mcp is set')
         from ldap_shell.mcp_server import serve
-        serve(client, domain_dumper, as_json=options.json)
+        serve(client, domain_dumper)
         return
 
     if inline_commands:

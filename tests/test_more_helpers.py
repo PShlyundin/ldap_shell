@@ -120,6 +120,19 @@ def test_runner_empty_and_false_result():
     assert failed.error == 'Command failed'
 
 
+def test_error_log_marks_inline_and_mcp_failed():
+    runner = _runner()
+
+    class _Err(_FakeModule):
+        def __call__(self):
+            self.log.error('Target not found: x')
+
+    runner.modules['get_acl'] = _Err
+    failed = runner.execute('get_acl x', capture=True)
+    assert failed.ok is False
+    assert failed.error == 'Target not found: x'
+
+
 def test_list_commands_shape():
     runner = _runner()
     commands = runner.list_commands()
