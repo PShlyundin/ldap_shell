@@ -18,6 +18,14 @@ uv pip install .
 ```
 
 ## Usage
+### Inline CLI
+```bash
+ldap_shell domain.local/user:password whoami
+ldap_shell domain.local/user:password -c "search \"(sAMAccountName=admin)\""
+ldap_shell domain.local/user:password --json whoami
+ldap_shell domain.local/user:password --mcp
+```
+
 ### Connection options
 ```bash
 # Basic authentication with password
