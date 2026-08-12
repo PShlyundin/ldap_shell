@@ -36,6 +36,7 @@ dev = ["pytest>=8.0", "mcp>=1.2"]
 
 [project.scripts]
 ldap_shell = "ldap_shell.__main__:main"
+ldap_shell-mcp = "ldap_shell.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/PShlyundin/ldap_shell"

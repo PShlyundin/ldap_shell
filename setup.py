@@ -47,6 +47,7 @@ setup(
     entry_points={
         'console_scripts': [
             'ldap_shell=ldap_shell.__main__:main',
+            'ldap_shell-mcp=ldap_shell.mcp_server:main',
         ],
     },
 )
