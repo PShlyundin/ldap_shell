@@ -12,11 +12,13 @@ from cryptography.x509.oid import NameOID
 from ldap_shell.session import (
     LdapConnectionError,
     _client_cert_from_options,
+    _decode_upn_othername,
     _looks_like_starttls_fallback,
     _ntlm_connection_kwargs,
     _pfx_to_pem_paths,
     connect_from_options,
     perform_ldap_connection,
+    username_from_x509,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -173,6 +175,106 @@ def test_connect_from_options_pfx_skips_password(tmp_path, monkeypatch):
     assert captured['kwargs']['client_cert']
     assert captured['kwargs']['client_key']
     assert Path(captured['kwargs']['client_cert']).is_file()
+
+
+def test_decode_upn_and_username_from_cert():
+    assert _decode_upn_othername(b'\x0c\x0falice@lab.local') == 'alice@lab.local'
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'alice')])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    from cryptography.x509.oid import ObjectIdentifier
+
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(1)
+        .not_valid_before(now - datetime.timedelta(days=1))
+        .not_valid_after(now + datetime.timedelta(days=1))
+        .add_extension(
+            x509.SubjectAlternativeName([
+                x509.OtherName(ObjectIdentifier('1.3.6.1.4.1.311.20.2.3'), b'\x0c\x0falice@lab.local'),
+            ]),
+            critical=False,
+        )
+        .sign(key, hashes.SHA256())
+    )
+    assert username_from_x509(cert) == ('alice', 'lab.local')
+
+
+def test_pkinit_sets_kerberos_and_skips_external(tmp_path, monkeypatch):
+    pfx = _write_test_pfx(tmp_path / 'user.pfx')
+    captured = {}
+
+    def fake_pkinit(options, domain, username, kdc_host):
+        captured['pkinit'] = (domain, username, kdc_host)
+        return str(tmp_path / 'user.ccache')
+
+    def fake_perform(*args, **kwargs):
+        captured['kerberos'] = args[4]
+        captured['client_cert'] = kwargs.get('client_cert')
+        return SimpleNamespace(result={'result': 0}, server=SimpleNamespace())
+
+    monkeypatch.setattr('ldap_shell.session.pkinit_ccache_from_options', fake_pkinit)
+    monkeypatch.setattr('ldap_shell.session.perform_ldap_connection', fake_perform)
+    monkeypatch.setattr('ldapdomaindump.domainDumper', lambda *a, **k: object())
+
+    connect_from_options(SimpleNamespace(
+        target='lab.local/alice',
+        hashes=None,
+        aesKey=None,
+        no_pass=False,
+        k=False,
+        dc_host='dc.lab.local',
+        dc_ip='10.0.0.1',
+        use_ldaps=False,
+        pfx=str(pfx),
+        pfx_pass='secret',
+        cert=None,
+        key=None,
+        cert_auth='pkinit',
+        lootdir='.',
+    ))
+    assert captured['pkinit'] == ('lab.local', 'alice', 'dc.lab.local')
+    assert captured['kerberos'] is True
+    assert captured['client_cert'] is None
+
+
+def test_pkinit_auto_falls_back_to_external(tmp_path, monkeypatch):
+    pfx = _write_test_pfx(tmp_path / 'user.pfx')
+    captured = {}
+
+    def fake_pkinit(*args, **kwargs):
+        raise LdapConnectionError('PKINIT is not supported by this KDC')
+
+    def fake_perform(*args, **kwargs):
+        captured['client_cert'] = kwargs.get('client_cert')
+        captured['kerberos'] = args[4]
+        return SimpleNamespace(result={'result': 0}, server=SimpleNamespace())
+
+    monkeypatch.setattr('ldap_shell.session.pkinit_ccache_from_options', fake_pkinit)
+    monkeypatch.setattr('ldap_shell.session.perform_ldap_connection', fake_perform)
+    monkeypatch.setattr('ldapdomaindump.domainDumper', lambda *a, **k: object())
+
+    connect_from_options(SimpleNamespace(
+        target='lab.local/alice',
+        hashes=None,
+        aesKey=None,
+        no_pass=False,
+        k=False,
+        dc_host='dc.lab.local',
+        dc_ip='10.0.0.1',
+        use_ldaps=False,
+        pfx=str(pfx),
+        pfx_pass='secret',
+        cert=None,
+        key=None,
+        cert_auth='auto',
+        lootdir='.',
+    ))
+    assert captured['kerberos'] is False
+    assert captured['client_cert']
 
 
 def test_get_ldap_client_uses_sasl_external(tmp_path, monkeypatch):

@@ -27,3 +27,6 @@ def test_cert_flags_parse():
     pem = parse_args(['lab.local/', '-cert', 'user.pem', '-key', 'user.key'])
     assert pem.cert == 'user.pem'
     assert pem.key == 'user.key'
+    auth = parse_args(['lab.local/user', '-pfx', 'user.pfx', '-cert-auth', 'pkinit', '-dc-host', 'dc.lab.local'])
+    assert auth.cert_auth == 'pkinit'
+    assert auth.dc_host == 'dc.lab.local'

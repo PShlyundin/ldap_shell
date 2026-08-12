@@ -48,6 +48,7 @@ def options_from_env(base=None):
     opts.pfx_pass = getattr(opts, 'pfx_pass', None) or os.environ.get('LDAP_SHELL_PFX_PASS')
     opts.cert = getattr(opts, 'cert', None) or os.environ.get('LDAP_SHELL_CERT')
     opts.key = getattr(opts, 'key', None) or os.environ.get('LDAP_SHELL_KEY')
+    opts.cert_auth = getattr(opts, 'cert_auth', None) or os.environ.get('LDAP_SHELL_CERT_AUTH') or 'auto'
     opts.lootdir = getattr(opts, 'lootdir', None) or os.environ.get('LDAP_SHELL_LOOTDIR') or '.'
     return opts
 
@@ -87,6 +88,7 @@ def serve(client=None, domain_dumper=None, as_json=False):
         pfx_pass: str = '',
         cert: str = '',
         key: str = '',
+        cert_auth: str = 'auto',
     ) -> str:
         """Bind to a domain controller. target is domain/username[:password]."""
         opts = SimpleNamespace(
@@ -102,6 +104,7 @@ def serve(client=None, domain_dumper=None, as_json=False):
             pfx_pass=pfx_pass or None,
             cert=cert or None,
             key=key or None,
+            cert_auth=cert_auth or 'auto',
             lootdir='.',
         )
         try:
@@ -158,6 +161,8 @@ def main(options=None):
         parser.add_argument('-pfx-pass', dest='pfx_pass')
         parser.add_argument('-cert', dest='cert')
         parser.add_argument('-key', dest='key')
+        parser.add_argument('-cert-auth', dest='cert_auth', default='auto',
+                            choices=['auto', 'pkinit', 'external'])
         parser.add_argument('-k', action='store_true')
         parser.add_argument('-no-pass', action='store_true')
         parser.add_argument('-aesKey', dest='aesKey')

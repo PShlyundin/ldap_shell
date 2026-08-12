@@ -31,9 +31,12 @@ ldap_shell domain.local/user:password -dc-ip 192.168.1.2
 ldap_shell domain.local/user -hashes aad3b435b51404eeaad3b435b51404ee:aad3b435b51404eeaad3b435b51404e1
 export KRB5CCNAME=/home/user/ticket.ccache
 ldap_shell -k -no-pass -dc-host dc.domain.local domain.local/user
-ldap_shell domain.local/ -pfx user.pfx -pfx-pass 'pfx-secret'
-ldap_shell domain.local/ -cert user.pem -key user.key
+ldap_shell domain.local/user -pfx user.pfx -pfx-pass 'pfx-secret' -dc-host dc.domain.local
+ldap_shell domain.local/ -pfx user.pfx -cert-auth external
+ldap_shell domain.local/user -cert user.pem -key user.key -dc-host dc.domain.local
 ```
+
+`-pfx` / `-cert` default to **PKINIT** (TGT, then Kerberos LDAP) when `-dc-host` and a username (target or UPN in the cert) are present. `-cert-auth external` forces LDAPS SASL EXTERNAL. `-cert-auth auto` falls back to EXTERNAL if PKINIT fails. Same flags work on `ldap_shell-mcp` / the MCP `connect` tool (`LDAP_SHELL_PFX`, `LDAP_SHELL_CERT_AUTH`).
 
 ### Inline CLI
 

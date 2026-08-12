@@ -96,6 +96,11 @@ def parse_args(argv=None) -> argparse.Namespace:
         '-key', action='store', metavar='file',
         help='PEM private key (use with -cert)'
     )
+    parser.add_argument(
+        '-cert-auth', action='store', dest='cert_auth', default='auto',
+        choices=['auto', 'pkinit', 'external'],
+        help='certificate bind: pkinit (TGT), external (LDAPS SASL), or auto (PKINIT then EXTERNAL)'
+    )
     parser.add_argument('-no-pass', action='store_true',
                         help='don\'t ask for password (useful for -k)')
     parser.add_argument(

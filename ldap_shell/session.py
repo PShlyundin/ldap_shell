@@ -124,6 +124,145 @@ def _client_cert_from_options(options) -> Tuple[Optional[str], Optional[str]]:
     return None, None
 
 
+_UPN_OID = '1.3.6.1.4.1.311.20.2.3'
+_DEFAULT_DH = {
+    'p': int(
+        '00ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024e088a67cc74020bbea63b139b22514a08798e3404ddef'
+        '9519b3cd3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec6f44c42e9a637ed6b0bff5cb6f406b7edee386b'
+        'fb5a899fa5ae9f24117c4b1fe649286651ece65381ffffffffffffffff',
+        16,
+    ),
+    'g': 2,
+}
+
+
+def _decode_upn_othername(value: bytes) -> str:
+    """Decode a UPN OtherName payload (UTF8String / BMPString / raw UTF-8)."""
+    if not value:
+        return ''
+    if value[0] in (0x0C, 0x1E, 0x13):
+        idx = 1
+        length = value[idx]
+        idx += 1
+        if length & 0x80:
+            nbytes = length & 0x7F
+            length = int.from_bytes(value[idx:idx + nbytes], 'big')
+            idx += nbytes
+        payload = value[idx:idx + length]
+        if value[0] == 0x1E:
+            return payload.decode('utf-16-be', errors='replace')
+        return payload.decode('utf-8', errors='replace')
+    return value.decode('utf-8', errors='replace')
+
+
+def username_from_x509(cert) -> Tuple[Optional[str], Optional[str]]:
+    """Return (username, domain) from a certificate UPN SAN or CN."""
+    from cryptography import x509
+    from cryptography.x509.oid import ExtensionOID, NameOID, ObjectIdentifier
+
+    try:
+        san = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+    except x509.ExtensionNotFound:
+        san = None
+    if san is not None:
+        upn_oid = ObjectIdentifier(_UPN_OID)
+        for name in san.value:
+            if isinstance(name, x509.OtherName) and name.type_id == upn_oid:
+                upn = _decode_upn_othername(name.value)
+                if '@' in upn:
+                    user, domain = upn.split('@', 1)
+                    return user, domain
+                if upn:
+                    return upn, None
+    cns = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+    if cns:
+        return cns[0].value, None
+    return None, None
+
+
+def _x509_from_options(options):
+    """Load the client certificate object from -pfx or -cert."""
+    from cryptography.hazmat.primitives.serialization import pkcs12
+    from cryptography.x509 import load_pem_x509_certificate
+
+    pfx = getattr(options, 'pfx', None)
+    if pfx:
+        path = Path(pfx)
+        if not path.is_file():
+            raise LdapConnectionError(f'PFX not found: {pfx}')
+        try:
+            _key, cert, _extra = pkcs12.load_key_and_certificates(
+                path.read_bytes(), _pfx_password_bytes(getattr(options, 'pfx_pass', None))
+            )
+        except Exception as exc:
+            raise LdapConnectionError(f'Failed to load PFX {pfx}: {exc}') from exc
+        if cert is None:
+            raise LdapConnectionError(f'PFX {pfx} does not contain a certificate')
+        return cert
+    cert_path = getattr(options, 'cert', None)
+    if cert_path:
+        path = Path(cert_path)
+        if not path.is_file():
+            raise LdapConnectionError(f'Certificate not found: {cert_path}')
+        return load_pem_x509_certificate(path.read_bytes())
+    return None
+
+
+def _write_ccache(data: bytes) -> str:
+    """Persist a ccache blob in a process-lifetime temp directory."""
+    tmp = tempfile.TemporaryDirectory(prefix='ldap_shell_ccache_')
+    _CERT_TEMPDIRS.append(tmp)
+    path = Path(tmp.name) / 'user.ccache'
+    path.write_bytes(data)
+    return str(path)
+
+
+def pkinit_ccache_from_options(options, domain: str, username: str, kdc_host: str) -> str:
+    """Get a TGT via PKINIT and return the ccache path."""
+    from minikerberos.common.ccache import CCACHE
+    from minikerberos.common.target import KerberosTarget
+    from minikerberos.network.clientsocket import KerberosClientSocket
+
+    from ldap_shell.utils.myPKINIT import myPKINIT
+
+    if not kdc_host:
+        raise LdapConnectionError('PKINIT requires -dc-host (DNS name of the KDC)')
+    if not username:
+        raise LdapConnectionError('PKINIT requires a username (target or UPN in the certificate)')
+
+    pfx = getattr(options, 'pfx', None)
+    if pfx:
+        ini = myPKINIT.from_pfx_data(
+            Path(pfx).read_bytes(),
+            _pfx_password_bytes(getattr(options, 'pfx_pass', None)),
+            _DEFAULT_DH,
+        )
+    else:
+        ini = myPKINIT.from_pem(options.cert, options.key, _DEFAULT_DH)
+
+    req = ini.build_asreq(domain, username)
+    try:
+        res = KerberosClientSocket(KerberosTarget(kdc_host)).sendrecv(req)
+    except Exception as exc:
+        raise LdapConnectionError(f'PKINIT AS-REQ to {kdc_host} failed: {exc}') from exc
+
+    native = getattr(res, 'native', None) or {}
+    if native.get('error-code') == 15:
+        raise LdapConnectionError('PKINIT is not supported by this KDC')
+    if native.get('error-code'):
+        raise LdapConnectionError(f'PKINIT AS-REP error {native.get("error-code")}: {native}')
+
+    try:
+        encasrep, _session_key, _cipher = ini.decrypt_asrep(native)
+        cache = CCACHE()
+        cache.add_tgt(native, encasrep)
+        return _write_ccache(cache.to_bytes())
+    except LdapConnectionError:
+        raise
+    except Exception as exc:
+        raise LdapConnectionError(f'Failed to build TGT from PKINIT AS-REP: {exc}') from exc
+
+
 def _format_bind_error(result) -> str:
     if not result:
         return 'LDAP bind failed'
@@ -149,15 +288,47 @@ def connect_from_options(options) -> Tuple[ldap3.Connection, ldapdomaindump.doma
     no_pass = getattr(options, 'no_pass', False)
     do_kerberos = bool(getattr(options, 'k', False) or aes_key)
     dc_host = getattr(options, 'dc_host', None)
-    client_cert, client_key = _client_cert_from_options(options)
+    has_cert = bool(getattr(options, 'pfx', None) or getattr(options, 'cert', None))
+    cert_auth = (getattr(options, 'cert_auth', None) or 'auto').lower()
+    if cert_auth not in ('auto', 'pkinit', 'external'):
+        raise LdapConnectionError('-cert-auth must be auto, pkinit or external')
+
+    client_cert = client_key = None
+    if has_cert and cert_auth != 'external':
+        cert_obj = _x509_from_options(options)
+        cert_user, cert_domain = username_from_x509(cert_obj) if cert_obj else (None, None)
+        if not username and cert_user:
+            username = cert_user
+            log.debug('Username %s taken from certificate', username)
+        if not domain and cert_domain:
+            domain = cert_domain
+        if cert_auth == 'pkinit' and not dc_host:
+            raise LdapConnectionError('PKINIT requires -dc-host')
+        if dc_host and username:
+            try:
+                ccache_path = pkinit_ccache_from_options(options, domain, username, dc_host)
+                os.environ['KRB5CCNAME'] = ccache_path
+                do_kerberos = True
+                no_pass = True
+                log.info(f'PKINIT TGT acquired for {domain}\\{username}, binding with Kerberos')
+            except LdapConnectionError as exc:
+                if cert_auth == 'pkinit':
+                    raise
+                log.info(f'PKINIT failed ({exc}). Falling back to SASL EXTERNAL.')
+        elif cert_auth == 'pkinit':
+            raise LdapConnectionError('PKINIT needs a username (target or UPN in the certificate) and -dc-host')
+
+    if has_cert and not do_kerberos:
+        client_cert, client_key = _client_cert_from_options(options)
+
     use_ldaps = bool(getattr(options, 'use_ldaps', False) or client_cert)
 
-    if not password and username and hashes is None and not no_pass and aes_key is None and not client_cert:
+    if not password and username and hashes is None and not no_pass and aes_key is None and not has_cert:
         if sys.stdin.isatty():
             password = getpass()
         else:
             raise LdapConnectionError('Password is required (or pass -hashes / -k -no-pass / -pfx)')
-    if not password and no_pass and hashes is None and not do_kerberos and aes_key is None and not client_cert:
+    if not password and no_pass and hashes is None and not do_kerberos and aes_key is None and not has_cert:
         # Dummy secret used by ntlmrelayx SOCKS / proxychains LDAP clients.
         password = 'relay'
         log.debug('No password with -no-pass: using dummy password for SOCKS/relay binds')
