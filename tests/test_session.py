@@ -11,13 +11,13 @@ from cryptography.x509.oid import NameOID
 
 from ldap_shell.session import (
     LdapConnectionError,
-    adopt_ldap_connection,
     _client_cert_from_options,
     _decode_upn_othername,
     _ldap_ports,
     _looks_like_starttls_fallback,
     _ntlm_connection_kwargs,
     _pfx_to_pem_paths,
+    adopt_ldap_connection,
     connect_from_options,
     perform_ldap_connection,
     username_from_x509,
