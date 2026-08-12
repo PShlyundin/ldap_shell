@@ -75,12 +75,12 @@ Tools: `connect`, `status`, `list_commands`, `run`. Every shell module is a `run
 ```
 Get Info
     dump [output_dir] - Dumps the domain
-    get_asreproast [target] - Users with DONT_REQUIRE_PREAUTH
+    get_asreproast [target] [file] - AS-REP roastable users + hashcat hashes
     get_children [target] - List child objects of a container
     get_delegation [target] - Unconstrained / constrained / RBCD
     get_dns [name] - AD-integrated DNS nodes
     get_group_users group - Get all users in a group
-    get_kerberoast [target] - Users with an SPN
+    get_kerberoast [target] [file] - Kerberoastable users + hashcat TGS
     get_laps_gmsa [target] - LAPS (incl. 2.0) and gMSA secrets
     get_maq [user] - Machine Account Quota
     get_privileged_accounts [group] - Built-in privileged group members

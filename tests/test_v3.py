@@ -31,6 +31,16 @@ def test_describe_mask_generic_all():
     assert 'GenericAll' in names
 
 
+def test_roast_hashcat_formats():
+    from ldap_shell.utils.roast_utils import format_asrep, format_tgs
+
+    cipher = bytes(range(32))
+    asrep = format_asrep('alice', 'lab.local', 23, cipher)
+    assert asrep.startswith('$krb5asrep$23$alice@LAB.LOCAL:')
+    tgs = format_tgs('sql', 'lab.local', 'MSSQLSvc/db.lab.local', 23, cipher)
+    assert tgs.startswith('$krb5tgs$23$*sql$LAB.LOCAL$MSSQLSvc/db.lab.local*')
+
+
 def test_suggest_abuse_maps_keycred_and_owner():
     assert AceUtils.suggest_abuse('john', ['WriteProperty'], 'msDS-KeyCredentialLink') == 'set_keycred john add'
     assert AceUtils.suggest_abuse('admin', ['WriteOwner']) == 'set_owner admin'
@@ -126,7 +136,7 @@ def test_parse_managed_password_blob():
 def test_kerberoast_and_delegation_args():
     roast = ModuleLoader.load_module('get_kerberoast')
     names = [arg.name for arg in roast.get_arguments()]
-    assert names == ['target']
+    assert names == ['target', 'output']
     assert roast.get_arguments()[0].required is False
 
     deleg = ModuleLoader.load_module('set_delegation')
