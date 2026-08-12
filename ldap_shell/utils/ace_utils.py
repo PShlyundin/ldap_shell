@@ -57,10 +57,10 @@ _HINTS = {
 
 class AceUtils:
     @staticmethod
-    def create_allow_ace(sid):
+    def create_allow_ace(sid, inherit=False):
         nace = ldaptypes.ACE()
         nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
-        nace['AceFlags'] = 0x00
+        nace['AceFlags'] = 0x03 if inherit else 0x00
         acedata = ldaptypes.ACCESS_ALLOWED_ACE()
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
         acedata['Mask']['Mask'] = 983551  # Full control
@@ -95,9 +95,9 @@ class AceUtils:
         return sd
 
     @staticmethod
-    def createACE(sid, object_type=None, access_mask=983551): # 983551 Full control
+    def createACE(sid, object_type=None, access_mask=983551, inherit=False): # 983551 Full control
         nace = ldaptypes.ACE()
-        nace['AceFlags'] = 0x00
+        nace['AceFlags'] = 0x03 if inherit else 0x00
 
         if object_type is None:
             acedata = ldaptypes.ACCESS_ALLOWED_ACE()

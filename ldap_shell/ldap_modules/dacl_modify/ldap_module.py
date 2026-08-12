@@ -34,6 +34,8 @@ class LdapShellModule(BaseLdapModule):
     ```
     Add write permission for msDS-AllowedToActOnBehalfOfOtherIdentity property:
     `dacl_modify "CN=web_svc,CN=Computers,DC=roasting,DC=lab" admin add WritetoRBCD`
+    Inherit to descendants (OU/container):
+    `dacl_modify "OU=work,DC=domain,DC=local" john add GenericAll inherit`
     ```
     [INFO] DACL modified successfully!
     ```
@@ -56,6 +58,11 @@ class LdapShellModule(BaseLdapModule):
         mask: str = arg_field(
             description="Permission type (genericall, writedacl etc.) or object GUID",
             arg_type=ArgumentType.MASK
+        )
+        inherit: str = arg_field(
+            None,
+            description="If inherit/true, ACE applies to this object and descendants",
+            arg_type=ArgumentType.BOOLEAN,
         )
 
     def __init__(self, args_dict: dict, 
@@ -121,10 +128,12 @@ class LdapShellModule(BaseLdapModule):
 
         # Create/delete ACE
         if self.args.action.lower() == 'add':
+            inherit = str(self.args.inherit or '').lower() in ('inherit', 'true', '1', 'yes')
             ace = AceUtils.createACE(
                 sid=grantee_sid, 
                 access_mask=mask_value,
-                object_type=object_type
+                object_type=object_type,
+                inherit=inherit,
             )
             sd['Dacl'].aces.append(ace)
         elif self.args.action.lower() == 'del':
