@@ -1,6 +1,7 @@
+import binascii
 import random
 import string
-import binascii
+
 from Cryptodome.Hash import MD4
 
 

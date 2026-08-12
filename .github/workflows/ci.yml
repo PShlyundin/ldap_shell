@@ -12,7 +12,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install package and pytest
-        run: python -m pip install -e . pytest
+      - name: Install package and quality extras
+        run: python -m pip install -e ".[dev]"
+      - name: Ruff
+        run: python -m ruff check ldap_shell/runner.py ldap_shell/utils/security_utils.py ldap_shell/utils/module_loader.py tests
       - name: Tests
-        run: python -m pytest -q
+        run: python -m pytest --cov --cov-report=term-missing

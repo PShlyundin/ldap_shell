@@ -7,7 +7,7 @@ import shlex
 import string
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from ldap_shell.utils.module_loader import ModuleLoader
