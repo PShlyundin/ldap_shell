@@ -28,6 +28,7 @@ def parse_args(argv=None) -> argparse.Namespace:
             '  ldap_shell domain.local/user:pass search "(sAMAccountName=admin)"\n'
             '  ldap_shell domain.local/user:pass -c "get_acl admin" -c whoami\n'
             '  ldap_shell domain.local/user:pass --mcp\n'
+            '  ldap_shell domain.local/ -anon\n'
         ),
     )
     parser.add_argument(
@@ -107,6 +108,10 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     parser.add_argument('-no-pass', action='store_true',
                         help='don\'t ask for password (useful for -k)')
+    parser.add_argument(
+        '-anon', action='store_true',
+        help='anonymous bind (domain.local/ without a username also does this)'
+    )
     parser.add_argument(
         '-k', action='store_true',
         help='use Kerberos authentication. Grabs credentials from ccache file '

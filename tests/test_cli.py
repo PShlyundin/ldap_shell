@@ -32,3 +32,5 @@ def test_cert_flags_parse():
     assert auth.dc_host == 'dc.lab.local'
     gc = parse_args(['lab.local/user:pass', '-gc'])
     assert gc.gc is True
+    anon = parse_args(['lab.local/', '-anon'])
+    assert anon.anon is True

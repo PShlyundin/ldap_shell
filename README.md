@@ -31,6 +31,8 @@ uv pip install .
 ldap_shell domain.local/user:password
 ldap_shell domain.local/user:password -dc-ip 192.168.1.2
 ldap_shell domain.local/user:password -gc
+ldap_shell domain.local/ -anon
+ldap_shell domain.local/
 ldap_shell domain.local/user -hashes aad3b435b51404eeaad3b435b51404ee:aad3b435b51404eeaad3b435b51404e1
 export KRB5CCNAME=/home/user/ticket.ccache
 ldap_shell -k -no-pass -dc-host dc.domain.local domain.local/user

@@ -304,6 +304,28 @@ def test_pkinit_auto_falls_back_to_external(tmp_path, monkeypatch):
     assert captured['client_cert']
 
 
+def test_anonymous_bind_skips_ntlm(monkeypatch):
+    from ldap_shell import session as session_mod
+
+    class FakeConnection:
+        last = None
+
+        def __init__(self, server, **kwargs):
+            FakeConnection.last = kwargs
+            self.server = server
+            self.result = {'result': 0, 'description': 'success'}
+
+        def bind(self):
+            return True
+
+    monkeypatch.setattr(session_mod.ldap3, 'Connection', FakeConnection)
+    session_mod.get_ldap_client(
+        None, False, 'lab.local', None, None, None, None, None,
+        SimpleNamespace(ssl=False), r'lab.local\ ', '',
+    )
+    assert FakeConnection.last == {}
+
+
 def test_get_ldap_client_uses_sasl_external(tmp_path, monkeypatch):
     from ldap_shell import session as session_mod
 

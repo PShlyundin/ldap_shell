@@ -292,6 +292,9 @@ def connect_from_options(options) -> Tuple[ldap3.Connection, ldapdomaindump.doma
     domain, username, password = parse_credentials(getattr(options, 'target', '') or '')
     if not domain:
         raise LdapConnectionError('Domain name should be specified')
+    if getattr(options, 'anon', False):
+        username = ''
+        password = ''
 
     hashes = getattr(options, 'hashes', None)
     aes_key = getattr(options, 'aesKey', None)
@@ -561,6 +564,19 @@ def get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash,
         login_ldap3_kerberos(
             connection, username, password, domain, lmhash, nthash, aes_key, kdc_host
         )
+        return connection
+
+    if not username and hashes is None:
+        connection = ldap3.Connection(server)
+        if start_tls:
+            _start_tls(connection)
+        bind_result = connection.bind()
+        if not bind_result:
+            message = f'{_format_bind_error(connection.result)} (anonymous bind)'
+            if _signing_required(connection.result):
+                message += _signing_followup(bool(server.ssl or start_tls), connection.result)
+            raise LdapConnectionError(message)
+        log.info('Anonymous bind succeeded')
         return connection
 
     if hashes is not None:
