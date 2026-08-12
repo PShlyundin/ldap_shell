@@ -18,3 +18,12 @@ def test_inline_cli_entry_exists():
     assert 'inline_command' in source
     assert 'collect_inline_commands' in source
     assert '--mcp' in source
+
+
+def test_cert_flags_parse():
+    pfx = parse_args(['lab.local/', '-pfx', 'user.pfx', '-pfx-pass', 'secret'])
+    assert pfx.pfx == 'user.pfx'
+    assert pfx.pfx_pass == 'secret'
+    pem = parse_args(['lab.local/', '-cert', 'user.pem', '-key', 'user.key'])
+    assert pem.cert == 'user.pem'
+    assert pem.key == 'user.key'

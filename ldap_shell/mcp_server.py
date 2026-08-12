@@ -44,6 +44,10 @@ def options_from_env(base=None):
     opts.use_ldaps = bool(getattr(opts, 'use_ldaps', False) or os.environ.get('LDAP_SHELL_USE_LDAPS'))
     opts.k = bool(getattr(opts, 'k', False) or os.environ.get('LDAP_SHELL_KRB5'))
     opts.no_pass = bool(getattr(opts, 'no_pass', False) or os.environ.get('LDAP_SHELL_NO_PASS'))
+    opts.pfx = getattr(opts, 'pfx', None) or os.environ.get('LDAP_SHELL_PFX')
+    opts.pfx_pass = getattr(opts, 'pfx_pass', None) or os.environ.get('LDAP_SHELL_PFX_PASS')
+    opts.cert = getattr(opts, 'cert', None) or os.environ.get('LDAP_SHELL_CERT')
+    opts.key = getattr(opts, 'key', None) or os.environ.get('LDAP_SHELL_KEY')
     opts.lootdir = getattr(opts, 'lootdir', None) or os.environ.get('LDAP_SHELL_LOOTDIR') or '.'
     return opts
 
@@ -79,6 +83,10 @@ def serve(client=None, domain_dumper=None, as_json=False):
         hashes: str = '',
         use_ldaps: bool = False,
         kerberos: bool = False,
+        pfx: str = '',
+        pfx_pass: str = '',
+        cert: str = '',
+        key: str = '',
     ) -> str:
         """Bind to a domain controller. target is domain/username[:password]."""
         opts = SimpleNamespace(
@@ -90,6 +98,10 @@ def serve(client=None, domain_dumper=None, as_json=False):
             k=kerberos,
             no_pass=kerberos and not hashes,
             aesKey=None,
+            pfx=pfx or None,
+            pfx_pass=pfx_pass or None,
+            cert=cert or None,
+            key=key or None,
             lootdir='.',
         )
         try:
@@ -142,6 +154,10 @@ def main(options=None):
         parser.add_argument('-dc-host', dest='dc_host')
         parser.add_argument('-hashes', dest='hashes')
         parser.add_argument('-use-ldaps', action='store_true', dest='use_ldaps')
+        parser.add_argument('-pfx', dest='pfx')
+        parser.add_argument('-pfx-pass', dest='pfx_pass')
+        parser.add_argument('-cert', dest='cert')
+        parser.add_argument('-key', dest='key')
         parser.add_argument('-k', action='store_true')
         parser.add_argument('-no-pass', action='store_true')
         parser.add_argument('-aesKey', dest='aesKey')

@@ -80,6 +80,22 @@ def parse_args(argv=None) -> argparse.Namespace:
         '-use-ldaps', action='store_true',
         help='Use LDAPS (port 636) for the whole session'
     )
+    parser.add_argument(
+        '-pfx', action='store', metavar='file',
+        help='PKCS#12 client certificate for LDAPS SASL EXTERNAL bind'
+    )
+    parser.add_argument(
+        '-pfx-pass', action='store', metavar='password', dest='pfx_pass',
+        help='password for the PFX file'
+    )
+    parser.add_argument(
+        '-cert', action='store', metavar='file',
+        help='PEM client certificate (use with -key)'
+    )
+    parser.add_argument(
+        '-key', action='store', metavar='file',
+        help='PEM private key (use with -cert)'
+    )
     parser.add_argument('-no-pass', action='store_true',
                         help='don\'t ask for password (useful for -k)')
     parser.add_argument(

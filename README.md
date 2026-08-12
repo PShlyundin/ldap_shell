@@ -31,6 +31,8 @@ ldap_shell domain.local/user:password -dc-ip 192.168.1.2
 ldap_shell domain.local/user -hashes aad3b435b51404eeaad3b435b51404ee:aad3b435b51404eeaad3b435b51404e1
 export KRB5CCNAME=/home/user/ticket.ccache
 ldap_shell -k -no-pass -dc-host dc.domain.local domain.local/user
+ldap_shell domain.local/ -pfx user.pfx -pfx-pass 'pfx-secret'
+ldap_shell domain.local/ -cert user.pem -key user.key
 ```
 
 ### Inline CLI

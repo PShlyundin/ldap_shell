@@ -5,8 +5,10 @@ import logging
 import os
 import ssl
 import sys
+import tempfile
 from binascii import unhexlify
 from getpass import getpass
+from pathlib import Path
 from typing import Optional, Tuple
 
 import ldap3
@@ -25,6 +27,9 @@ from ldap_shell.utils import parse_credentials, parse_hashes
 
 log = logging.getLogger('ldap-shell')
 
+# PKCS#12 is unpacked to temp PEMs; keep the directories alive for the process.
+_CERT_TEMPDIRS: list = []
+
 
 class LdapConnectionError(Exception):
     """Raised when an LDAP bind or socket connection fails."""
@@ -41,6 +46,82 @@ def _tls_versions():
         if version is not None:
             versions.append((name, version))
     return versions
+
+
+def _make_tls(version, client_cert=None, client_key=None):
+    """Build an ldap3 Tls object, optionally with a client certificate."""
+    kwargs = {
+        'validate': ssl.CERT_NONE,
+        'version': version,
+        'ciphers': 'ALL:@SECLEVEL=0',
+    }
+    if client_cert and client_key:
+        kwargs['local_certificate_file'] = client_cert
+        kwargs['local_private_key_file'] = client_key
+    return ldap3.Tls(**kwargs)
+
+
+def _pfx_password_bytes(password):
+    """Normalize a PFX password to bytes, or None when the PFX has no password."""
+    if password is None or password == '':
+        return None
+    if isinstance(password, bytes):
+        return password
+    return password.encode()
+
+
+def _pfx_to_pem_paths(pfx_path: str, password=None) -> Tuple[str, str]:
+    """Unpack a PKCS#12 file to temp PEM cert/key paths used by ldap3.Tls."""
+    path = Path(pfx_path)
+    if not path.is_file():
+        raise LdapConnectionError(f'PFX not found: {pfx_path}')
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        NoEncryption,
+        PrivateFormat,
+        pkcs12,
+    )
+
+    try:
+        key, cert, _extra = pkcs12.load_key_and_certificates(
+            path.read_bytes(), _pfx_password_bytes(password)
+        )
+    except Exception as exc:
+        raise LdapConnectionError(f'Failed to load PFX {pfx_path}: {exc}') from exc
+    if key is None or cert is None:
+        raise LdapConnectionError(f'PFX {pfx_path} does not contain both a private key and a certificate')
+
+    tmp = tempfile.TemporaryDirectory(prefix='ldap_shell_cert_')
+    _CERT_TEMPDIRS.append(tmp)
+    cert_file = Path(tmp.name) / 'cert.pem'
+    key_file = Path(tmp.name) / 'key.pem'
+    cert_file.write_bytes(cert.public_bytes(Encoding.PEM))
+    key_file.write_bytes(
+        key.private_bytes(Encoding.PEM, PrivateFormat.TraditionalOpenSSL, NoEncryption())
+    )
+    return str(cert_file), str(key_file)
+
+
+def _client_cert_from_options(options) -> Tuple[Optional[str], Optional[str]]:
+    """Return (cert_pem, key_pem) from -pfx or -cert/-key, or (None, None)."""
+    pfx = getattr(options, 'pfx', None)
+    cert = getattr(options, 'cert', None)
+    key = getattr(options, 'key', None)
+    if pfx and (cert or key):
+        raise LdapConnectionError('Use either -pfx or -cert/-key, not both')
+    if (cert and not key) or (key and not cert):
+        raise LdapConnectionError('-cert and -key must be used together')
+    if pfx:
+        return _pfx_to_pem_paths(pfx, getattr(options, 'pfx_pass', None))
+    if cert:
+        cert_path = Path(cert)
+        key_path = Path(key)
+        if not cert_path.is_file():
+            raise LdapConnectionError(f'Certificate not found: {cert}')
+        if not key_path.is_file():
+            raise LdapConnectionError(f'Private key not found: {key}')
+        return str(cert_path), str(key_path)
+    return None, None
 
 
 def _format_bind_error(result) -> str:
@@ -68,14 +149,15 @@ def connect_from_options(options) -> Tuple[ldap3.Connection, ldapdomaindump.doma
     no_pass = getattr(options, 'no_pass', False)
     do_kerberos = bool(getattr(options, 'k', False) or aes_key)
     dc_host = getattr(options, 'dc_host', None)
-    use_ldaps = bool(getattr(options, 'use_ldaps', False))
+    client_cert, client_key = _client_cert_from_options(options)
+    use_ldaps = bool(getattr(options, 'use_ldaps', False) or client_cert)
 
-    if not password and username and hashes is None and not no_pass and aes_key is None:
+    if not password and username and hashes is None and not no_pass and aes_key is None and not client_cert:
         if sys.stdin.isatty():
             password = getpass()
         else:
-            raise LdapConnectionError('Password is required (or pass -hashes / -k -no-pass)')
-    if not password and no_pass and hashes is None and not do_kerberos and aes_key is None:
+            raise LdapConnectionError('Password is required (or pass -hashes / -k -no-pass / -pfx)')
+    if not password and no_pass and hashes is None and not do_kerberos and aes_key is None and not client_cert:
         # Dummy secret used by ntlmrelayx SOCKS / proxychains LDAP clients.
         password = 'relay'
         log.debug('No password with -no-pass: using dummy password for SOCKS/relay binds')
@@ -91,7 +173,8 @@ def connect_from_options(options) -> Tuple[ldap3.Connection, ldapdomaindump.doma
     log.debug('Connecting to %s as %s\\%s', target, domain, username)
     client = perform_ldap_connection(
         target, domain, username, password, do_kerberos, use_ldaps, hashes,
-        lmhash, nthash, aes_key, dc_host
+        lmhash, nthash, aes_key, dc_host,
+        client_cert=client_cert, client_key=client_key,
     )
 
     result = getattr(client, 'result', None) or {}
@@ -133,14 +216,19 @@ def _ntlm_connection_kwargs(user, password, server_ssl: bool) -> dict:
 def perform_ldap_connection(target: str, domain: str, username: str, password: str,
                             do_kerberos: bool, ldaps: Optional[bool], hashes: Optional[str],
                             lmhash: Optional[str], nthash: Optional[str],
-                            aes_key: Optional[str], kdc_host: Optional[str]) -> ldap3.Connection:
+                            aes_key: Optional[str], kdc_host: Optional[str],
+                            client_cert: Optional[str] = None,
+                            client_key: Optional[str] = None) -> ldap3.Connection:
     user_domain = fr'{domain}\{username}'
+    if client_cert:
+        ldaps = True
     if not ldaps:
         server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False)
         try:
             return get_ldap_client(
                 aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash,
-                password, server, user_domain, username
+                password, server, user_domain, username,
+                client_cert=client_cert,
             )
         except LdapConnectionError as exc:
             if do_kerberos or not _looks_like_signing_error(exc):
@@ -149,13 +237,14 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
 
     last_error = None
     for name, version in _tls_versions():
-        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=version, ciphers='ALL:@SECLEVEL=0')
+        tls = _make_tls(version, client_cert, client_key)
         server = ldap3.Server(target, get_info=ldap3.ALL, port=636, use_ssl=True, tls=tls)
         try:
             log.debug('Trying LDAPS with %s', name)
             return get_ldap_client(
                 aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash,
-                password, server, user_domain, username
+                password, server, user_domain, username,
+                client_cert=client_cert,
             )
         except LDAPSocketOpenError as exc:
             last_error = exc
@@ -172,7 +261,19 @@ def _looks_like_signing_error(exc: Exception) -> bool:
 
 
 def get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash,
-                    nthash, password, server, user_domain, username):
+                    nthash, password, server, user_domain, username,
+                    client_cert=None):
+    if client_cert:
+        connection = ldap3.Connection(
+            server, authentication=ldap3.SASL, sasl_mechanism=ldap3.EXTERNAL,
+        )
+        bind_result = connection.bind()
+        if not bind_result:
+            raise LdapConnectionError(
+                f'{_format_bind_error(connection.result)} (SASL EXTERNAL client-certificate bind)'
+            )
+        return connection
+
     if do_kerberos:
         connection = ldap3.Connection(server)
         connection.open()
