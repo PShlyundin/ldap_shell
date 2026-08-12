@@ -1,8 +1,8 @@
 import logging
 from ldap3 import Connection, MODIFY_REPLACE, MODIFY_ADD, MODIFY_DELETE
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from pydantic import BaseModel
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 import ldap3
 from ldap_shell.utils.ldap_utils import LdapUtils
 from ldap_shell.utils.ace_utils import AceUtils
@@ -41,19 +41,19 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
-        target: str = Field(
+        target: str = arg_field(
             description="Target object (DN or sAMAccountName)",
             arg_type=ArgumentType.DN
         )
-        grantee: str = Field(
+        grantee: str = arg_field(
             description="Account to modify permissions for",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP]
         )
-        action: str = Field(
+        action: str = arg_field(
             description="Action: add/del",
             arg_type=ArgumentType.ADD_DEL
         )
-        mask: str = Field(
+        mask: str = arg_field(
             description="Permission type (genericall, writedacl etc.) or object GUID",
             arg_type=ArgumentType.MASK
         )

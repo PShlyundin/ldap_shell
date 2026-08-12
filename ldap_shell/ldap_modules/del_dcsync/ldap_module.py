@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection, MODIFY_REPLACE
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldap3.utils.conv import escape_filter_chars
 from ldap_shell.utils.ldap_utils import LdapUtils
@@ -23,7 +23,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
-        target: Optional[str] = Field(
+        target: Optional[str] = arg_field(
             description="Target DN of user/computer to revoke rights",
             arg_type=[ArgumentType.DN]
         )

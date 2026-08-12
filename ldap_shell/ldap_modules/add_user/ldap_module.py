@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 from ldap_shell.utils.security_utils import SecurityUtils
 import re
@@ -35,16 +35,16 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Misc"
 
     class ModuleArgs(BaseModel):
-        username: str = Field(
+        username: str = arg_field(
             description="Username for the new account",
             arg_type=ArgumentType.STRING
         )
-        password: Optional[str] = Field(
+        password: Optional[str] = arg_field(
             None,
             description="Optional password (random if not specified)",
             arg_type=ArgumentType.STRING
         )
-        target_dn: Optional[str] = Field(
+        target_dn: Optional[str] = arg_field(
             None,
             description="Target DN to add the user to",
             arg_type=ArgumentType.DN

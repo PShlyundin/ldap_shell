@@ -1,8 +1,8 @@
 import logging
 from ldap3 import Connection, MODIFY_REPLACE
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from pydantic import BaseModel
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 class LdapShellModule(BaseLdapModule):
@@ -25,11 +25,11 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
-        target: str = Field(
+        target: str = arg_field(
             description="Target user (sAMAccountName)",
             arg_type=ArgumentType.USER
         )
-        flag: bool = Field(
+        flag: bool = arg_field(
             description="true to enable, false to disable",
             arg_type=ArgumentType.BOOLEAN
         )

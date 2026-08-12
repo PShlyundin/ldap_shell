@@ -1,10 +1,10 @@
 import logging
 from ldap3 import Connection    
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
 from ldap_shell.utils.module_loader import ModuleLoader
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 import importlib
 from colorama import init, Fore, Back, Style
 import textwrap
@@ -25,7 +25,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Other"
 
     class ModuleArgs(BaseModel):
-        command: Optional[str] = Field(
+        command: Optional[str] = arg_field(
             None,  # This argument is required
             description="Command to execute",
             arg_type=[ArgumentType.COMMAND]  # Changed to list of types

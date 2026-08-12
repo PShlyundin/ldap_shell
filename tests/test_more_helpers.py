@@ -128,15 +128,20 @@ def test_list_commands_shape():
 
 
 def test_module_argument_types_from_pydantic():
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel
+
+    from ldap_shell.ldap_modules.base_module import arg_field
 
     class Sample(BaseLdapModule):
         class ModuleArgs(BaseModel):
-            user: str = Field(description='u', json_schema_extra={'arg_type': ArgumentType.USER})
-            note: str = Field('x', description='n', json_schema_extra={'arg_type': ArgumentType.STRING})
+            user: str = arg_field(description='u', arg_type=ArgumentType.USER)
+            note: str = arg_field('x', description='n', arg_type=ArgumentType.STRING)
 
     args = Sample.get_arguments()
     assert [item.name for item in args] == ['user', 'note']
     assert args[0].required is True
     assert args[1].required is False
+    assert args[0].arg_type is ArgumentType.USER
     assert Sample.get_args_required() == ['user', '[note]']
+    extra = Sample.ModuleArgs.model_fields['user'].json_schema_extra
+    assert extra['arg_type'] is ArgumentType.USER
