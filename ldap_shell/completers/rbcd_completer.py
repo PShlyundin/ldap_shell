@@ -24,7 +24,7 @@ class RBCDCompleter(BaseArgumentCompleter):
             word_before_cursor = text.split()[-1]
         entry = self.client.search(
             self.domain_dumper.root,
-            f'(sAMAccountName={target})',
+            LdapUtils.sam_filter(target),
             attributes=['msDS-AllowedToActOnBehalfOfOtherIdentity']
         )
         if not entry or len(self.client.entries) != 1:

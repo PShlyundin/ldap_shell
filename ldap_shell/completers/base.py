@@ -2,8 +2,22 @@ from abc import ABC, abstractmethod
 from prompt_toolkit.completion import Completion
 from prompt_toolkit.document import Document
 from typing import Dict, Optional
+import html
 import threading
 from ldap_shell.utils import history
+
+
+def highlight_match(text: str, substr: str) -> str:
+    """Escape HTML and highlight the matching substring for prompt_toolkit."""
+    if not substr:
+        return html.escape(text)
+    index = text.lower().find(substr.lower())
+    if index < 0:
+        return html.escape(text)
+    before = html.escape(text[:index])
+    match = html.escape(text[index:index + len(substr)])
+    after = html.escape(text[index + len(substr):])
+    return f"{before}<b><style fg='black'>{match}</style></b>{after}"
 
 class BaseArgumentCompleter(ABC):
     """Base class for argument completers"""
@@ -41,8 +55,12 @@ class ADObjectCacheManager:
                 self._last_history_position = current_position
                 
                 # Check if there are add_ or del_ among new commands
+                mutating = (
+                    'add_', 'del_', 'set_', 'enable_', 'disable_',
+                    'change_', 'clear_', 'uac_', 'dacl_', 'switch_', 'restore'
+                )
                 return any(
-                    any(cmd in command for cmd in ['add_', 'del_'])
+                    any(cmd in command for cmd in mutating)
                     for command in new_commands
                 )
                 
