@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 from ldap_shell.utils.ace_utils import AceUtils
+from ldap_shell.utils.ldap_utils import LdapUtils
 from ldap_shell.utils.module_loader import ModuleLoader
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +29,15 @@ def test_module_loader_includes_new_commands():
 def test_describe_mask_generic_all():
     names = AceUtils.describe_mask(0x000F01FF)
     assert 'GenericAll' in names
+
+
+def test_suggest_abuse_maps_keycred_and_owner():
+    assert AceUtils.suggest_abuse('john', ['WriteProperty'], 'msDS-KeyCredentialLink') == 'set_keycred john add'
+    assert AceUtils.suggest_abuse('admin', ['WriteOwner']) == 'set_owner admin'
+    assert AceUtils.suggest_abuse('OU', ['WriteDacl']).startswith('dacl_modify')
+    assert AceUtils.object_type_name(
+        LdapUtils.string_to_bin('5b47d60f-6090-40b2-9f37-2a4de88f3063')
+    ) == 'msDS-KeyCredentialLink'
 
 
 def test_arg_field_does_not_emit_pydantic_extra_kwarg_warning():

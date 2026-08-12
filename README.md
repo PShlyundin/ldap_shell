@@ -101,7 +101,7 @@ Abuse ACL
     get_acl target - Read and pretty-print a DACL
     get_ntlm target - Shadow Credentials -> NT hash
     set_keycred target action [device_id] - Persist/list/remove KeyCredentials
-    get_writable [trustee] - Objects with interesting write rights
+    get_writable [trustee] - Writable objects + next-command hint
     set_attr target attribute action [value] - Generic attribute modify
     set_dcsync target - Grant DCSync
     set_delegation target action [spn] - Constrained delegation SPNs
