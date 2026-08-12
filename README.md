@@ -89,7 +89,7 @@ Get Info
 
 Abuse ACL
     add_sid_history target sid_or_group - Add a SID to sIDHistory
-    set_badsuccessor action [victim] [ou|dmsa] [name] - dMSA / BadSuccessor
+    set_badsuccessor action [victim] [ou|dmsa] [name] - dMSA / BadSuccessor (+ TGT if readable)
     add_user_to_group user group - Add a user to a group
     change_password user [password] - Change password (needs LDAPS/StartTLS)
     clear_rbcd target [grantee] - Clear RBCD

