@@ -48,6 +48,8 @@ ldap_shell domain.local/user:password search "(sAMAccountName=admin)" sAMAccount
 ldap_shell domain.local/user:password get_acl admin
 ldap_shell domain.local/user:password -c "get_writable" -c whoami
 ldap_shell domain.local/user:password --json whoami
+ldap_shell domain.local/user:password get_kerberoast
+ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.local
 ```
 
 `-non-interactive` reads commands from stdin (one per line).
@@ -72,6 +74,7 @@ Get Info
     get_delegation [target] - Unconstrained / constrained / RBCD
     get_dns [name] - AD-integrated DNS nodes
     get_group_users group - Get all users in a group
+    get_kerberoast [target] - Users with an SPN
     get_laps_gmsa [target] - LAPS (incl. 2.0) and gMSA secrets
     get_maq [user] - Machine Account Quota
     get_privileged_accounts [group] - Built-in privileged group members
@@ -93,6 +96,7 @@ Abuse ACL
     get_writable [trustee] - Objects with interesting write rights
     set_attr target attribute action [value] - Generic attribute modify
     set_dcsync target - Grant DCSync
+    set_delegation target action [spn] - Constrained delegation SPNs
     set_dontreqpreauth target flag - Targeted AS-REP roast flag
     set_genericall target [grantee] - Grant GenericAll
     set_owner target [grantee] - Set owner
