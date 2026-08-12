@@ -201,15 +201,40 @@ def _signing_required(result) -> bool:
     ))
 
 
-def _ntlm_connection_kwargs(user, password, server_ssl: bool) -> dict:
+def _connection_features() -> dict:
+    """What this ldap3 build can do beyond stock 2.9.1."""
+    params = inspect.signature(ldap3.Connection.__init__).parameters
+    return {
+        'channel_binding': 'channel_binding' in params,
+        'session_security': 'session_security' in params,
+    }
+
+
+def _channel_binding_value():
+    return getattr(ldap3, 'TLS_CHANNEL_BINDING', True)
+
+
+def _session_security_value():
+    for name in ('ENCRYPT', 'SIGNATURE'):
+        value = getattr(ldap3, name, None)
+        if value is not None:
+            return value
+    return 'ENCRYPT'
+
+
+def _ntlm_connection_kwargs(user, password, server_ssl: bool, start_tls: bool = False) -> dict:
+    """NTLM Connection kwargs; enable signing/EPA only when this ldap3 supports them."""
     kwargs = {
         'user': user,
         'password': password,
         'authentication': ldap3.NTLM,
     }
-    params = inspect.signature(ldap3.Connection.__init__).parameters
-    if server_ssl and 'channel_binding' in params:
-        kwargs['channel_binding'] = True
+    features = _connection_features()
+    tls = bool(server_ssl or start_tls)
+    if features['channel_binding'] and tls:
+        kwargs['channel_binding'] = _channel_binding_value()
+    if features['session_security'] and not tls:
+        kwargs['session_security'] = _session_security_value()
     return kwargs
 
 
@@ -222,18 +247,29 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
     user_domain = fr'{domain}\{username}'
     if client_cert:
         ldaps = True
+    client_args = (
+        aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash,
+        password,
+    )
     if not ldaps:
         server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False)
         try:
             return get_ldap_client(
-                aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash,
-                password, server, user_domain, username,
+                *client_args, server, user_domain, username,
                 client_cert=client_cert,
             )
         except LdapConnectionError as exc:
             if do_kerberos or not _looks_like_signing_error(exc):
                 raise
-            log.info(f'DC rejected plaintext LDAP ({exc}). Retrying over LDAPS.')
+            log.info(f'DC rejected plaintext LDAP ({exc}). Trying StartTLS, then LDAPS.')
+            try:
+                return _try_starttls(
+                    target, client_args, user_domain, username, client_cert, client_key,
+                )
+            except (LDAPSocketOpenError, LdapConnectionError) as starttls_exc:
+                if not _looks_like_starttls_fallback(starttls_exc):
+                    raise
+                log.info(f'StartTLS did not satisfy the DC ({starttls_exc}). Retrying over LDAPS.')
 
     last_error = None
     for name, version in _tls_versions():
@@ -242,14 +278,46 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
         try:
             log.debug('Trying LDAPS with %s', name)
             return get_ldap_client(
-                aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash,
-                password, server, user_domain, username,
+                *client_args, server, user_domain, username,
                 client_cert=client_cert,
             )
         except LDAPSocketOpenError as exc:
             last_error = exc
             log.debug('LDAPS %s failed', name, exc_info=True)
     raise LdapConnectionError(f'Failed to open LDAPS connection: {last_error}')
+
+
+def _try_starttls(target, client_args, user_domain, username, client_cert, client_key):
+    """Bind on port 389 after StartTLS. Used when plaintext LDAP is rejected."""
+    last_error = None
+    for name, version in _tls_versions():
+        tls = _make_tls(version, client_cert, client_key)
+        server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False, tls=tls)
+        try:
+            log.debug('Trying StartTLS with %s', name)
+            return get_ldap_client(
+                *client_args, server, user_domain, username,
+                client_cert=client_cert, start_tls=True,
+            )
+        except LDAPSocketOpenError as exc:
+            last_error = exc
+            log.debug('StartTLS %s failed', name, exc_info=True)
+        except LdapConnectionError as exc:
+            text = str(exc).lower()
+            if 'starttls' in text or 'start tls' in text:
+                last_error = exc
+                log.debug('StartTLS %s failed', name, exc_info=True)
+                continue
+            raise
+    raise LdapConnectionError(f'Failed to start TLS: {last_error}')
+
+
+def _start_tls(connection):
+    """Open the socket if needed and issue StartTLS."""
+    if connection.closed:
+        connection.open()
+    if not connection.start_tls():
+        raise LdapConnectionError('StartTLS failed')
 
 
 def _looks_like_signing_error(exc: Exception) -> bool:
@@ -260,13 +328,25 @@ def _looks_like_signing_error(exc: Exception) -> bool:
     ))
 
 
+def _looks_like_starttls_fallback(exc: Exception) -> bool:
+    """True when StartTLS failed in a way that still warrants an LDAPS retry."""
+    if isinstance(exc, LDAPSocketOpenError):
+        return True
+    text = str(exc).lower()
+    if 'start tls' in text or 'starttls' in text:
+        return True
+    return _looks_like_signing_error(exc)
+
+
 def get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash,
                     nthash, password, server, user_domain, username,
-                    client_cert=None):
+                    client_cert=None, start_tls=False):
     if client_cert:
         connection = ldap3.Connection(
             server, authentication=ldap3.SASL, sasl_mechanism=ldap3.EXTERNAL,
         )
+        if start_tls:
+            _start_tls(connection)
         bind_result = connection.bind()
         if not bind_result:
             raise LdapConnectionError(
@@ -277,6 +357,8 @@ def get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash,
     if do_kerberos:
         connection = ldap3.Connection(server)
         connection.open()
+        if start_tls:
+            _start_tls(connection)
         login_ldap3_kerberos(
             connection, username, password, domain, lmhash, nthash, aes_key, kdc_host
         )
@@ -290,15 +372,35 @@ def get_ldap_client(aes_key, do_kerberos, domain, hashes, kdc_host, lmhash,
         auth_label = 'password'
 
     connection = ldap3.Connection(
-        server, **_ntlm_connection_kwargs(user_domain, bind_password, bool(server.ssl))
+        server,
+        **_ntlm_connection_kwargs(
+            user_domain, bind_password, bool(server.ssl), start_tls=start_tls,
+        ),
     )
+    if start_tls:
+        _start_tls(connection)
     bind_result = connection.bind()
     if not bind_result:
         message = f'{_format_bind_error(connection.result)} (user {user_domain}, {auth_label} auth)'
         if _signing_required(connection.result):
-            message += '. DC likely requires LDAP signing or channel binding; retrying LDAPS if possible'
+            message += _signing_followup(bool(server.ssl or start_tls), connection.result)
         raise LdapConnectionError(message)
     return connection
+
+
+def _signing_followup(over_tls: bool, result) -> str:
+    """Extra hint when the DC wants signing or channel binding."""
+    if not over_tls:
+        return '. DC likely requires LDAP signing or channel binding; retrying StartTLS/LDAPS if possible'
+    if _connection_features()['channel_binding']:
+        return '. DC still rejected the TLS bind (signing/EPA)'
+    text = f'{result}'.lower()
+    if 'channel binding' in text or 'epa' in text:
+        return (
+            '. DC requires channel binding (EPA). This ldap3 build cannot send '
+            'channel binding tokens'
+        )
+    return '. DC likely requires LDAP signing or channel binding over TLS'
 
 
 def login_ldap3_kerberos(connection: ldap3.Connection, user: str, password: str,

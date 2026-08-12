@@ -12,8 +12,11 @@ from cryptography.x509.oid import NameOID
 from ldap_shell.session import (
     LdapConnectionError,
     _client_cert_from_options,
+    _looks_like_starttls_fallback,
+    _ntlm_connection_kwargs,
     _pfx_to_pem_paths,
     connect_from_options,
+    perform_ldap_connection,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +26,74 @@ def test_ldaps_retry_on_signing():
     source = (ROOT / 'ldap_shell/session.py').read_text()
     assert '_looks_like_signing_error' in source
     assert 'channel_binding' in source
+    assert '_try_starttls' in source
+    assert 'session_security' in source
+
+
+def test_ntlm_kwargs_stock_ldap3_has_no_epa():
+    tls = _ntlm_connection_kwargs(r'domain\user', 'pass', server_ssl=True)
+    plain = _ntlm_connection_kwargs(r'domain\user', 'pass', server_ssl=False)
+    assert 'channel_binding' not in tls
+    assert 'session_security' not in tls
+    assert 'session_security' not in plain
+
+
+def test_ntlm_kwargs_follow_ldap3_features(monkeypatch):
+    monkeypatch.setattr(
+        'ldap_shell.session._connection_features',
+        lambda: {'channel_binding': True, 'session_security': True},
+    )
+    monkeypatch.setattr('ldap_shell.session._channel_binding_value', lambda: 'tls-server-end-point')
+    monkeypatch.setattr('ldap_shell.session._session_security_value', lambda: 'ENCRYPT')
+    plain = _ntlm_connection_kwargs(r'domain\user', 'pass', server_ssl=False)
+    assert plain['session_security'] == 'ENCRYPT'
+    assert 'channel_binding' not in plain
+    tls = _ntlm_connection_kwargs(r'domain\user', 'pass', server_ssl=True)
+    assert tls['channel_binding'] == 'tls-server-end-point'
+    assert 'session_security' not in tls
+    starttls = _ntlm_connection_kwargs(r'domain\user', 'pass', server_ssl=False, start_tls=True)
+    assert starttls['channel_binding'] == 'tls-server-end-point'
+    assert 'session_security' not in starttls
+
+
+def test_starttls_fallback_after_signing(monkeypatch):
+    calls = []
+
+    def fake_client(*args, **kwargs):
+        calls.append(kwargs)
+        if not kwargs.get('start_tls'):
+            raise LdapConnectionError('LDAP bind failed: strongerAuthRequired (code 8)')
+        return SimpleNamespace(result={'result': 0})
+
+    monkeypatch.setattr('ldap_shell.session.get_ldap_client', fake_client)
+    client = perform_ldap_connection(
+        'dc.lab.local', 'lab.local', 'user', 'pass', False, False,
+        None, None, None, None, None,
+    )
+    assert client.result['result'] == 0
+    assert any(item.get('start_tls') for item in calls)
+
+
+def test_starttls_auth_error_does_not_fall_through(monkeypatch):
+    def fake_client(*args, **kwargs):
+        if not kwargs.get('start_tls'):
+            raise LdapConnectionError('LDAP bind failed: strongerAuthRequired (code 8)')
+        raise LdapConnectionError('LDAP bind failed: invalidCredentials (code 49)')
+
+    monkeypatch.setattr('ldap_shell.session.get_ldap_client', fake_client)
+    with pytest.raises(LdapConnectionError, match='invalidCredentials'):
+        perform_ldap_connection(
+            'dc.lab.local', 'lab.local', 'user', 'pass', False, False,
+            None, None, None, None, None,
+        )
+
+
+def test_starttls_transport_error_is_fallback():
+    from ldap3.core.exceptions import LDAPSocketOpenError
+
+    assert _looks_like_starttls_fallback(LDAPSocketOpenError('boom'))
+    assert _looks_like_starttls_fallback(LdapConnectionError('Failed to start TLS: boom'))
+    assert not _looks_like_starttls_fallback(LdapConnectionError('invalidCredentials (code 49)'))
 
 
 def _write_test_pfx(path: Path, password: bytes = b'secret') -> Path:
