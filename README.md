@@ -3,7 +3,7 @@ This project is a fork of ldap_shell from Impacket. It provides an interactive s
 
 
 ## Installation
-These tools are only compatible with Python 3.5+. Clone the repository from GitHub, install the dependencies and you should be good to go.
+These tools require Python 3.10+. Clone the repository from GitHub, install the dependencies and you should be good to go.
 Installation with pip:
 ```bash
 git clone https://github.com/PShlyundin/ldap_shell.git
