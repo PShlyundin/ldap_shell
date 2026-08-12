@@ -48,15 +48,15 @@ class LdapShellModule(BaseLdapModule):
     def __call__(self):
         target_dn = LdapUtils.resolve_dn(self.client, self.domain_dumper, self.args.target)
         if not target_dn:
-            self.log.error('Target not found: %s', self.args.target)
+            self.log.error(f'Target not found: {self.args.target}')
             return
         try:
             sid = self._resolve_sid(self.args.sid_or_group)
         except ValueError as exc:
-            self.log.error('%s', exc)
+            self.log.error(f'{exc}')
             return
         ok = self.client.modify(target_dn, {'sIDHistory': [(MODIFY_ADD, [sid])]})
         if ok:
-            self.log.info('Added %s to sIDHistory of %s', sid, target_dn)
+            self.log.info(f'Added {sid} to sIDHistory of {target_dn}')
         else:
-            self.log.error('Failed to set sIDHistory: %s', self.client.result)
+            self.log.error(f'Failed to set sIDHistory: {self.client.result}')

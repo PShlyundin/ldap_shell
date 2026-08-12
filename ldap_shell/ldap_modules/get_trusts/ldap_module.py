@@ -43,4 +43,4 @@ class LdapShellModule(BaseLdapModule):
             partner = entry['trustPartner'].value or entry['name'].value
             direction = DIRECTIONS.get(int(entry['trustDirection'].value or 0), entry['trustDirection'].value)
             trust_type = TYPES.get(int(entry['trustType'].value or 0), entry['trustType'].value)
-            self.log.info('%s  %s  %s', partner, direction, trust_type)
+            self.log.info(f'{partner}  {direction}  {trust_type}')

@@ -145,7 +145,7 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
         except LdapConnectionError as exc:
             if do_kerberos or not _looks_like_signing_error(exc):
                 raise
-            log.info('DC rejected plaintext LDAP (%s). Retrying over LDAPS.', exc)
+            log.info(f'DC rejected plaintext LDAP ({exc}). Retrying over LDAPS.')
 
     last_error = None
     for name, version in _tls_versions():

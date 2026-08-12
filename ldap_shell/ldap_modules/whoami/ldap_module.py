@@ -49,10 +49,10 @@ class LdapShellModule(BaseLdapModule):
             who = self.client.extend.standard.who_am_i()
         except Exception:
             pass
-        self.log.info('bind: %s', self.client.user)
+        self.log.info(f'bind: {self.client.user}')
         if who:
-            self.log.info('whoami: %s', who)
-        self.log.info('host: %s ssl=%s start_tls=%s', self.client.server.host, bool(self.client.server.ssl), bool(self.client.tls_started))
+            self.log.info(f'whoami: {who}')
+        self.log.info(f'host: {self.client.server.host} ssl={bool(self.client.server.ssl)} start_tls={bool(self.client.tls_started)}')
 
         dn = LdapUtils.get_dn(self.client, self.domain_dumper, sam)
         if not dn:
@@ -65,17 +65,17 @@ class LdapShellModule(BaseLdapModule):
         if not self.client.entries:
             return
         entry = self.client.entries[0]
-        self.log.info('dn: %s', dn)
-        self.log.info('sid: %s', entry['objectSid'].value)
+        self.log.info(f'dn: {dn}')
+        self.log.info(f'sid: {entry["objectSid"].value}')
         uac = int(entry['userAccountControl'].value or 0)
         flags = [name for bit, name in UAC_FLAGS.items() if uac & bit]
-        self.log.info('uac: %s (%s)', uac, ', '.join(flags) or 'none')
+        self.log.info(f'uac: {uac} ({", ".join(flags) or "none"})')
         if entry['adminCount'].value:
-            self.log.info('adminCount: %s', entry['adminCount'].value)
+            self.log.info(f'adminCount: {entry["adminCount"].value}')
         groups = entry['memberOf'].values if 'memberOf' in entry else []
         if groups:
             pretty = [LdapUtils.get_name_from_dn(g) for g in groups]
-            self.log.info('groups: %s', ', '.join(pretty))
+            self.log.info(f'groups: {", ".join(pretty)}')
         spns = entry['servicePrincipalName'].values if 'servicePrincipalName' in entry else []
         if spns:
-            self.log.info('spn: %s', ', '.join(spns))
+            self.log.info(f'spn: {", ".join(spns)}')

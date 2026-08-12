@@ -49,7 +49,7 @@ class LdapShellModule(BaseLdapModule):
     def _dump_group(self, name: str):
         group_dn = LdapUtils.get_dn(self.client, self.domain_dumper, name)
         if not group_dn:
-            self.log.info('=== %s === not found', name)
+            self.log.info(f'=== {name} === not found')
             return
         self.client.search(
             self.domain_dumper.root,
@@ -57,7 +57,7 @@ class LdapShellModule(BaseLdapModule):
             attributes=['sAMAccountName', 'objectClass', 'userAccountControl'],
             paged_size=500
         )
-        self.log.info('=== %s === %s member(s)', name, len(self.client.entries))
+        self.log.info(f'=== {name} === {len(self.client.entries)} member(s)')
         for entry in self.client.entries:
             classes = entry['objectClass'].values if 'objectClass' in entry else []
             kind = 'computer' if 'computer' in classes else 'group' if 'group' in classes else 'user'
@@ -67,7 +67,7 @@ class LdapShellModule(BaseLdapModule):
                     disabled = ' [disabled]'
             except Exception:
                 pass
-            self.log.info('  [%s] %s%s', kind, entry['sAMAccountName'].value, disabled)
+            self.log.info(f'  [{kind}] {entry["sAMAccountName"].value}{disabled}')
 
     def __call__(self):
         names = [self.args.group] if self.args.group else list(PRIVILEGED_GROUPS)

@@ -38,7 +38,7 @@ class LdapShellModule(BaseLdapModule):
     def __call__(self):
         target_dn = LdapUtils.resolve_dn(self.client, self.domain_dumper, self.args.target)
         if not target_dn:
-            self.log.error('Target not found: %s', self.args.target)
+            self.log.error(f'Target not found: {self.args.target}')
             return
 
         self.client.search(
@@ -48,7 +48,7 @@ class LdapShellModule(BaseLdapModule):
             controls=security_descriptor_control(sdflags=0x07)
         )
         if not self.client.entries:
-            self.log.error('Failed to read security descriptor of %s', target_dn)
+            self.log.error(f'Failed to read security descriptor of {target_dn}')
             return
 
         raw = self.client.entries[0]['nTSecurityDescriptor'].raw_values
@@ -59,8 +59,9 @@ class LdapShellModule(BaseLdapModule):
         sd = SR_SECURITY_DESCRIPTOR(data=raw[0])
         owner = sd['OwnerSid'].formatCanonical() if sd['OwnerSid'] else None
         owner_name = LdapUtils.sid_to_user(self.client, self.domain_dumper, owner) if owner else None
-        self.log.info('target: %s', target_dn)
-        self.log.info('owner: %s%s', owner, f' ({owner_name})' if owner_name else '')
+        self.log.info(f'target: {target_dn}')
+        owner_label = f'{owner} ({owner_name})' if owner_name else owner
+        self.log.info(f'owner: {owner_label}')
 
         if not sd['Dacl'] or not getattr(sd['Dacl'], 'aces', None):
             self.log.info('No DACL entries')
@@ -81,4 +82,4 @@ class LdapShellModule(BaseLdapModule):
             except Exception:
                 pass
             extra = f' object={object_type}' if object_type else ''
-            self.log.info('%s %s %s%s', allow, trustee, rights, extra)
+            self.log.info(f'{allow} {trustee} {rights}{extra}')

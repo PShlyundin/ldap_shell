@@ -46,7 +46,7 @@ class LdapShellModule(BaseLdapModule):
             controls=[SHOW_DELETED]
         )
         if not self.client.entries:
-            self.log.error('Deleted object not found: %s', self.args.target)
+            self.log.error(f'Deleted object not found: {self.args.target}')
             return
         entry = self.client.entries[0]
         deleted_dn = entry.entry_dn
@@ -61,6 +61,6 @@ class LdapShellModule(BaseLdapModule):
             'distinguishedName': [(MODIFY_REPLACE, [new_dn])],
         })
         if ok:
-            self.log.info('Restored %s -> %s', deleted_dn, new_dn)
+            self.log.info(f'Restored {deleted_dn} -> {new_dn}')
         else:
-            self.log.error('Restore failed: %s', self.client.result)
+            self.log.error(f'Restore failed: {self.client.result}')

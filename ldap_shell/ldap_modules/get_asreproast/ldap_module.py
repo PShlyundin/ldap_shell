@@ -51,6 +51,6 @@ class LdapShellModule(BaseLdapModule):
         if not self.client.entries:
             self.log.info('No AS-REP roastable users found')
             return
-        self.log.info('Found %s AS-REP roastable user(s):', len(self.client.entries))
+        self.log.info(f'Found {len(self.client.entries)} AS-REP roastable user(s):')
         for entry in self.client.entries:
-            self.log.info('  %s  %s', entry['sAMAccountName'].value, entry.entry_dn)
+            self.log.info(f'  {entry["sAMAccountName"].value}  {entry.entry_dn}')

@@ -53,12 +53,12 @@ class LdapShellModule(BaseLdapModule):
             name = entry['sAMAccountName'].value
             uac = int(entry['userAccountControl'].value or 0)
             if uac & UAS_UNCONSTRAINED:
-                self.log.info('[UNCONSTRAINED] %s', name)
+                self.log.info(f'[UNCONSTRAINED] {name}')
             if uac & UAS_PROTOCOL:
-                self.log.info('[PROTOCOL] %s', name)
+                self.log.info(f'[PROTOCOL] {name}')
             allowed = entry['msDS-AllowedToDelegateTo'].values if 'msDS-AllowedToDelegateTo' in entry else []
             if allowed:
-                self.log.info('[CONSTRAINED] %s -> %s', name, ', '.join(allowed))
+                self.log.info(f'[CONSTRAINED] {name} -> {", ".join(allowed)}')
             raw = entry['msDS-AllowedToActOnBehalfOfOtherIdentity'].raw_values if 'msDS-AllowedToActOnBehalfOfOtherIdentity' in entry else []
             if raw:
                 try:
@@ -67,6 +67,6 @@ class LdapShellModule(BaseLdapModule):
                     for ace in sd['Dacl'].aces:
                         sid = ace['Ace']['Sid'].formatCanonical()
                         trustees.append(LdapUtils.sid_to_user(self.client, self.domain_dumper, sid) or sid)
-                    self.log.info('[RBCD] %s <- %s', name, ', '.join(trustees) or 'empty')
+                    self.log.info(f'[RBCD] {name} <- {", ".join(trustees) or "empty"}')
                 except Exception as exc:
-                    self.log.info('[RBCD] %s (unparsed: %s)', name, exc)
+                    self.log.info(f'[RBCD] {name} (unparsed: {exc})')

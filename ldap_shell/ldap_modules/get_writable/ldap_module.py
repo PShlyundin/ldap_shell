@@ -40,9 +40,9 @@ class LdapShellModule(BaseLdapModule):
         trustee = self.args.trustee or current_sam(self.client)
         sid = LdapUtils.get_sid(self.client, self.domain_dumper, trustee)
         if not sid:
-            self.log.error('Trustee not found: %s', trustee)
+            self.log.error(f'Trustee not found: {trustee}')
             return
-        self.log.info('Searching interesting ACEs for %s (%s)', trustee, sid)
+        self.log.info(f'Searching interesting ACEs for {trustee} ({sid})')
 
         found = 0
         generator = self.client.extend.standard.paged_search(
@@ -96,9 +96,9 @@ class LdapShellModule(BaseLdapModule):
                 continue
             attrs = entry.get('attributes') or {}
             name = attrs.get('sAMAccountName') or attrs.get('distinguishedName') or entry.get('dn')
-            self.log.info('%s  %s', name, ', '.join(hits))
+            self.log.info(f'{name}  {", ".join(hits)}')
             found += 1
         if not found:
-            self.log.info('No interesting writable objects found for %s', trustee)
+            self.log.info(f'No interesting writable objects found for {trustee}')
         else:
-            self.log.info('Found %s writable object(s)', found)
+            self.log.info(f'Found {found} writable object(s)')

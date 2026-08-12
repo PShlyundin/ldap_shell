@@ -53,18 +53,18 @@ class LdapShellModule(BaseLdapModule):
     def __call__(self):
         action = (self.args.action or '').lower()
         if action not in ACTIONS:
-            self.log.error('Invalid action %s. Use add/replace/del', self.args.action)
+            self.log.error(f'Invalid action {self.args.action}. Use add/replace/del')
             return
         target_dn = LdapUtils.resolve_dn(self.client, self.domain_dumper, self.args.target)
         if not target_dn:
-            self.log.error('Target not found: %s', self.args.target)
+            self.log.error(f'Target not found: {self.args.target}')
             return
         values = [self.args.value] if self.args.value is not None else []
         if action in ('add', 'replace') and not values:
-            self.log.error('Value is required for %s', action)
+            self.log.error(f'Value is required for {action}')
             return
         ok = self.client.modify(target_dn, {self.args.attribute: [(ACTIONS[action], values)]})
         if ok:
-            self.log.info('%s %s on %s', action, self.args.attribute, target_dn)
+            self.log.info(f'{action} {self.args.attribute} on {target_dn}')
         else:
-            self.log.error('Modify failed: %s', self.client.result)
+            self.log.error(f'Modify failed: {self.client.result}')

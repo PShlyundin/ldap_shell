@@ -41,10 +41,10 @@ class LdapShellModule(BaseLdapModule):
             paged_size=500
         )
         if not self.client.entries:
-            self.log.info('No children under %s', base)
+            self.log.info(f'No children under {base}')
             return
         for entry in self.client.entries:
             classes = entry['objectClass'].values if 'objectClass' in entry else []
             kind = classes[-1] if classes else 'object'
             name = entry['sAMAccountName'].value if 'sAMAccountName' in entry else entry.entry_dn
-            self.log.info('[%s] %s', kind, name)
+            self.log.info(f'[{kind}] {name}')

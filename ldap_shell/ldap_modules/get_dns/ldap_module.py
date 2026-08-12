@@ -41,12 +41,12 @@ class LdapShellModule(BaseLdapModule):
             attributes=['dc', 'dnsRecord', 'name'],
             paged_size=500
         ):
-            self.log.error('DNS search failed: %s', self.client.result)
+            self.log.error(f'DNS search failed: {self.client.result}')
             return
         if not self.client.entries:
-            self.log.info('No DNS nodes found under %s', zone_base)
+            self.log.info(f'No DNS nodes found under {zone_base}')
             return
         for entry in self.client.entries:
             name = entry['dc'].value or entry['name'].value or entry.entry_dn
             records = entry['dnsRecord'].values if 'dnsRecord' in entry else []
-            self.log.info('%s  records=%s', name, len(records))
+            self.log.info(f'{name}  records={len(records)}')
