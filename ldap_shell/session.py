@@ -346,6 +346,7 @@ def connect_from_options(options) -> Tuple[ldap3.Connection, ldapdomaindump.doma
         target, domain, username, password, do_kerberos, use_ldaps, hashes,
         lmhash, nthash, aes_key, dc_host,
         client_cert=client_cert, client_key=client_key,
+        gc=bool(getattr(options, 'gc', False)),
     )
 
     result = getattr(client, 'result', None) or {}
@@ -409,12 +410,20 @@ def _ntlm_connection_kwargs(user, password, server_ssl: bool, start_tls: bool = 
     return kwargs
 
 
+def _ldap_ports(ldaps: bool, gc: bool) -> Tuple[int, int]:
+    """Return (plain_port, tls_port) for DC LDAP or Global Catalog."""
+    if gc:
+        return 3268, 3269
+    return 389, 636
+
+
 def perform_ldap_connection(target: str, domain: str, username: str, password: str,
                             do_kerberos: bool, ldaps: Optional[bool], hashes: Optional[str],
                             lmhash: Optional[str], nthash: Optional[str],
                             aes_key: Optional[str], kdc_host: Optional[str],
                             client_cert: Optional[str] = None,
-                            client_key: Optional[str] = None) -> ldap3.Connection:
+                            client_key: Optional[str] = None,
+                            gc: bool = False) -> ldap3.Connection:
     user_domain = fr'{domain}\{username}'
     features = _connection_features()
     log.debug(
@@ -423,12 +432,15 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
     )
     if client_cert:
         ldaps = True
+    plain_port, tls_port = _ldap_ports(bool(ldaps), gc)
+    if gc:
+        log.debug('Using Global Catalog ports %s/%s', plain_port, tls_port)
     client_args = (
         aes_key, do_kerberos, domain, hashes, kdc_host, lmhash, nthash,
         password,
     )
     if not ldaps:
-        server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False)
+        server = ldap3.Server(target, get_info=ldap3.ALL, port=plain_port, use_ssl=False)
         try:
             return get_ldap_client(
                 *client_args, server, user_domain, username,
@@ -441,6 +453,7 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
             try:
                 return _try_starttls(
                     target, client_args, user_domain, username, client_cert, client_key,
+                    port=plain_port,
                 )
             except (LDAPSocketOpenError, LdapConnectionError) as starttls_exc:
                 if not _looks_like_starttls_fallback(starttls_exc):
@@ -450,7 +463,7 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
     last_error = None
     for name, version in _tls_versions():
         tls = _make_tls(version, client_cert, client_key)
-        server = ldap3.Server(target, get_info=ldap3.ALL, port=636, use_ssl=True, tls=tls)
+        server = ldap3.Server(target, get_info=ldap3.ALL, port=tls_port, use_ssl=True, tls=tls)
         try:
             log.debug('Trying LDAPS with %s', name)
             return get_ldap_client(
@@ -463,12 +476,12 @@ def perform_ldap_connection(target: str, domain: str, username: str, password: s
     raise LdapConnectionError(f'Failed to open LDAPS connection: {last_error}')
 
 
-def _try_starttls(target, client_args, user_domain, username, client_cert, client_key):
-    """Bind on port 389 after StartTLS. Used when plaintext LDAP is rejected."""
+def _try_starttls(target, client_args, user_domain, username, client_cert, client_key, port=389):
+    """Bind after StartTLS. Used when plaintext LDAP is rejected."""
     last_error = None
     for name, version in _tls_versions():
         tls = _make_tls(version, client_cert, client_key)
-        server = ldap3.Server(target, get_info=ldap3.ALL, use_ssl=False, tls=tls)
+        server = ldap3.Server(target, get_info=ldap3.ALL, port=port, use_ssl=False, tls=tls)
         try:
             log.debug('Trying StartTLS with %s', name)
             return get_ldap_client(

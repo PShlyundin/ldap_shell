@@ -30,3 +30,5 @@ def test_cert_flags_parse():
     auth = parse_args(['lab.local/user', '-pfx', 'user.pfx', '-cert-auth', 'pkinit', '-dc-host', 'dc.lab.local'])
     assert auth.cert_auth == 'pkinit'
     assert auth.dc_host == 'dc.lab.local'
+    gc = parse_args(['lab.local/user:pass', '-gc'])
+    assert gc.gc is True

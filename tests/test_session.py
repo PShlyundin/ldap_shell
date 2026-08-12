@@ -13,6 +13,7 @@ from ldap_shell.session import (
     LdapConnectionError,
     _client_cert_from_options,
     _decode_upn_othername,
+    _ldap_ports,
     _looks_like_starttls_fallback,
     _ntlm_connection_kwargs,
     _pfx_to_pem_paths,
@@ -22,6 +23,13 @@ from ldap_shell.session import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_gc_ports():
+    assert _ldap_ports(False, False) == (389, 636)
+    assert _ldap_ports(True, False) == (389, 636)
+    assert _ldap_ports(False, True) == (3268, 3269)
+    assert _ldap_ports(True, True) == (3268, 3269)
 
 
 def test_ldaps_retry_on_signing():

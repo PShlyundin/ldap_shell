@@ -81,6 +81,10 @@ def parse_args(argv=None) -> argparse.Namespace:
         help='Use LDAPS (port 636) for the whole session'
     )
     parser.add_argument(
+        '-gc', action='store_true',
+        help='Bind to the Global Catalog (3268, or 3269 with -use-ldaps)'
+    )
+    parser.add_argument(
         '-pfx', action='store', metavar='file',
         help='PKCS#12 client certificate for LDAPS SASL EXTERNAL bind'
     )
