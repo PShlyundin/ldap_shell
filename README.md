@@ -92,6 +92,7 @@ Get Info
     get_kerberoast [target] [file] - Kerberoastable users + hashcat TGS
     get_laps_gmsa [target] - LAPS (incl. 2.0) and gMSA secrets
     get_maq [user] - Machine Account Quota
+    get_policy - Domain / FGPP password policy and SASL mechs
     get_privileged_accounts [group] - Built-in privileged group members
     get_trusts - Domain trusts
     get_user_groups user - Recursive group membership

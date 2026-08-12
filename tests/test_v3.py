@@ -21,7 +21,7 @@ def test_module_loader_includes_new_commands():
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
         'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
         'add_sid_history', 'get_kerberoast', 'set_delegation', 'set_keycred',
-        'set_dns', 'set_badsuccessor', 'get_pre2k', 'get_desc',
+        'set_dns', 'set_badsuccessor', 'get_pre2k', 'get_desc', 'get_policy',
     ):
         assert required in names
 
@@ -39,6 +39,15 @@ def test_roast_hashcat_formats():
     assert asrep.startswith('$krb5asrep$23$alice@LAB.LOCAL:')
     tgs = format_tgs('sql', 'lab.local', 'MSSQLSvc/db.lab.local', 23, cipher)
     assert tgs.startswith('$krb5tgs$23$*sql$LAB.LOCAL$MSSQLSvc/db.lab.local*')
+
+
+def test_filetime_span_policy():
+    from ldap_shell.ldap_modules.get_policy.ldap_module import filetime_span
+
+    assert filetime_span(None) == '-'
+    assert filetime_span(0) == 'never'
+    day = -86400 * 10_000_000
+    assert filetime_span(day) == '1.0d'
 
 
 def test_empty_sd_roundtrip_bytes():
