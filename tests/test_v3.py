@@ -20,6 +20,7 @@ def test_module_loader_includes_new_commands():
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
         'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
         'add_sid_history', 'get_kerberoast', 'set_delegation', 'set_keycred',
+        'set_dns',
     ):
         assert required in names
 
@@ -44,6 +45,19 @@ def test_arg_field_does_not_emit_pydantic_extra_kwarg_warning():
             user: str = arg_field(description='u', arg_type=ArgumentType.USER)
 
     assert Sample.model_fields['user'].json_schema_extra['arg_type'] is ArgumentType.USER
+
+
+def test_dns_a_record_roundtrip():
+    from ldap_shell.ldap_modules.set_dns.ldap_module import pack_dns_a, unpack_dns_type
+
+    blob = pack_dns_a('10.0.0.5', ttl=180, serial=7)
+    assert unpack_dns_type(blob) == 1
+    assert blob[-4:] == bytes((10, 0, 0, 5))
+    try:
+        pack_dns_a('not-an-ip')
+    except ValueError:
+        return
+    raise AssertionError('expected ValueError')
 
 
 def test_kerberoast_and_delegation_args():
