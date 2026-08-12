@@ -41,6 +41,15 @@ def test_roast_hashcat_formats():
     assert tgs.startswith('$krb5tgs$23$*sql$LAB.LOCAL$MSSQLSvc/db.lab.local*')
 
 
+def test_empty_sd_roundtrip_bytes():
+    blob = AceUtils.create_empty_sd().getData()
+    assert isinstance(blob, (bytes, bytearray))
+    assert len(blob) > 8
+    restored = AceUtils.create_empty_sd()
+    restored.fromString(blob)
+    assert restored['OwnerSid'].formatCanonical() == 'S-1-5-32-544'
+
+
 def test_create_ace_inherit_flag():
     ace = AceUtils.create_allow_ace('S-1-5-21-1-2-3-4', inherit=True)
     assert ace['AceFlags'] == 0x03
