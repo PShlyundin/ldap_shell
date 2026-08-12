@@ -26,6 +26,11 @@ class LdapShellModule(BaseLdapModule):
 
     Example 4: Switch to computer account
     `switch_user srv1$ password`
+
+    Example 5: Switch with a PFX (PKINIT / EXTERNAL, same rules as -pfx)
+    `switch_user john ./john.pfx`
+    `switch_user john ./john.pfx pfx-secret`
+    `switch_user john ./cert.pem ./key.pem`
     """
     module_type = "Misc"
 
@@ -36,7 +41,12 @@ class LdapShellModule(BaseLdapModule):
         )
         password: Optional[str] = arg_field(
             None,
-            description="User's password or NTLM hash (optional)",
+            description="Password, NTLM hash, .pfx path or .pem cert",
+            arg_type=ArgumentType.STRING
+        )
+        extra: Optional[str] = arg_field(
+            None,
+            description="PFX password, or PEM private key if password is a cert",
             arg_type=ArgumentType.STRING
         )
 
@@ -49,16 +59,63 @@ class LdapShellModule(BaseLdapModule):
         self.client = client
         self.log = log or logging.getLogger('ldap-shell.shell')
 
+    def _switch_with_cert(self, username, secret, extra) -> bool:
+        from pathlib import Path
+        from types import SimpleNamespace
+
+        from ldap_shell.session import LdapConnectionError, adopt_ldap_connection, connect_from_options
+
+        suffix = Path(secret).suffix.lower()
+        domain = current_domain(self.client)
+        host = getattr(self.client.server, 'host', None)
+        port = getattr(self.client.server, 'port', None)
+        is_ip = bool(host and all(part.isdigit() for part in host.split('.')))
+        opts = SimpleNamespace(
+            target=f'{domain}/{username}',
+            dc_ip=host if is_ip else None,
+            dc_host=None if is_ip else host,
+            hashes=None,
+            aesKey=None,
+            no_pass=True,
+            k=False,
+            use_ldaps=bool(self.client.server.ssl or self.client.tls_started),
+            pfx=secret if suffix == '.pfx' else None,
+            pfx_pass=extra if suffix == '.pfx' else None,
+            cert=secret if suffix in ('.pem', '.crt') else None,
+            key=extra if suffix in ('.pem', '.crt') else None,
+            cert_auth='auto',
+            gc=port in (3268, 3269),
+            lootdir='.',
+        )
+        try:
+            new_client, _dumper = connect_from_options(opts)
+        except LdapConnectionError as exc:
+            self.log.error(f'Certificate bind failed: {exc}')
+            return False
+        adopt_ldap_connection(self.client, new_client)
+        self.domain_dumper.connection = self.client
+        self.domain_dumper.server = self.client.server
+        return True
+
     def __call__(self):
         import getpass
+        from pathlib import Path
 
         username = self.args.username
         password = self.args.password
+        extra = self.args.extra
+        old_user = current_sam(self.client)
+
+        if password and Path(password).suffix.lower() in ('.pfx', '.pem', '.crt'):
+            if self._switch_with_cert(username, password, extra):
+                self.log.info(f'Success! User {old_user} was changed to {username}')
+                return f'{username}# '
+            return False
+
         if not password:
             password = getpass.getpass()
 
         domain = current_domain(self.client)
-        old_user = current_sam(self.client)
         old_password = self.client.password
         old_auth = self.client.authentication
 

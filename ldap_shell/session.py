@@ -35,6 +35,16 @@ class LdapConnectionError(Exception):
     """Raised when an LDAP bind or socket connection fails."""
 
 
+def adopt_ldap_connection(dst, src) -> None:
+    """Replace dst in-place so objects that already hold it see the new bind."""
+    try:
+        if getattr(dst, 'bound', False):
+            dst.unbind()
+    except Exception:
+        pass
+    dst.__dict__.update(src.__dict__)
+
+
 def _utc_now():
     return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 

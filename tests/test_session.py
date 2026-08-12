@@ -11,6 +11,7 @@ from cryptography.x509.oid import NameOID
 
 from ldap_shell.session import (
     LdapConnectionError,
+    adopt_ldap_connection,
     _client_cert_from_options,
     _decode_upn_othername,
     _ldap_ports,
@@ -23,6 +24,24 @@ from ldap_shell.session import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_adopt_ldap_connection_replaces_state():
+    class _Conn:
+        def __init__(self, user, bound=True):
+            self.user = user
+            self.bound = bound
+            self.unbound = False
+
+        def unbind(self):
+            self.unbound = True
+            self.bound = False
+
+    dst = _Conn('old')
+    src = _Conn('new')
+    adopt_ldap_connection(dst, src)
+    assert dst.user == 'new'
+    assert dst.unbound is False
 
 
 def test_gc_ports():
