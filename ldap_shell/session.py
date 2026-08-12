@@ -75,6 +75,10 @@ def connect_from_options(options) -> Tuple[ldap3.Connection, ldapdomaindump.doma
             password = getpass()
         else:
             raise LdapConnectionError('Password is required (or pass -hashes / -k -no-pass)')
+    if not password and no_pass and hashes is None and not do_kerberos and aes_key is None:
+        # Dummy secret used by ntlmrelayx SOCKS / proxychains LDAP clients.
+        password = 'relay'
+        log.debug('No password with -no-pass: using dummy password for SOCKS/relay binds')
 
     if aes_key is not None:
         do_kerberos = True

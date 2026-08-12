@@ -17,7 +17,8 @@ def test_module_loader_includes_new_commands():
     names = ModuleLoader.list_modules()
     for required in (
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
-        'restore', 'set_attr',
+        'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
+        'add_sid_history',
     ):
         assert required in names
 

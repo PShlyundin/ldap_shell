@@ -138,6 +138,13 @@ class LdapShellModule(BaseLdapModule):
                 # PKINIT authentication
                 pfx_pass = ''.join(chr(random.randint(1, 255)) for _ in range(20)).encode()
                 pfxdata = _export_pfx(certificate, pfx_pass)
+                try:
+                    pfx_path = f'{self.args.target}.pfx'
+                    with open(pfx_path, 'wb') as handle:
+                        handle.write(pfxdata)
+                    self.log.info('Saved PFX to %s', pfx_path)
+                except OSError as exc:
+                    self.log.warning('Could not save PFX: %s', exc)
 
                 dhparams = {
                     'p': int('00ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec6f44c42e9a637ed6b0bff5cb6f406b7edee386bfb5a899fa5ae9f24117c4b1fe649286651ece65381ffffffffffffffff', 16),
