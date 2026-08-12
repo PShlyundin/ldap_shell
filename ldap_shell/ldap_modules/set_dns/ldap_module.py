@@ -55,14 +55,50 @@ def pack_dns_cname(target: str, ttl: int = 180, serial: int = 1) -> bytes:
     return pack_dns_record(DNS_TYPE_CNAME, encode_dns_count_name(target), ttl=ttl, serial=serial)
 
 
+def _as_bytes(blob) -> bytes:
+    if blob is None:
+        return b''
+    return bytes(blob) if not isinstance(blob, bytes) else blob
+
+
 def unpack_dns_type(blob) -> Optional[int]:
     """Return the DNS type of a packed dnsRecord, or None if truncated."""
-    if blob is None:
-        return None
-    raw = bytes(blob) if not isinstance(blob, bytes) else blob
+    raw = _as_bytes(blob)
     if len(raw) < 4:
         return None
     return struct.unpack_from('<H', raw, 2)[0]
+
+
+def decode_dns_count_name(payload: bytes) -> str:
+    """Decode a DNS_COUNT_NAME payload to a dotted FQDN."""
+    if len(payload) < 2:
+        return ''
+    raw = payload[2:]
+    labels = []
+    idx = 0
+    while idx < len(raw):
+        length = raw[idx]
+        if length == 0:
+            break
+        idx += 1
+        labels.append(raw[idx:idx + length].decode('utf-8', errors='replace'))
+        idx += length
+    return '.'.join(labels)
+
+
+def describe_dns_record(blob) -> str:
+    """Human-readable A/CNAME (or type+len) for one dnsRecord blob."""
+    raw = _as_bytes(blob)
+    rtype = unpack_dns_type(raw)
+    data = raw[24:] if len(raw) >= 24 else b''
+    if rtype == DNS_TYPE_A and len(data) >= 4:
+        return f'A {socket.inet_ntoa(data[:4])}'
+    if rtype == DNS_TYPE_CNAME:
+        name = decode_dns_count_name(data)
+        return f'CNAME {name}' if name else 'CNAME'
+    if rtype is None:
+        return 'unparsed'
+    return f'type={rtype} len={len(data)}'
 
 
 class LdapShellModule(BaseLdapModule):

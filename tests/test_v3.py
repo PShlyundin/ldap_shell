@@ -82,7 +82,9 @@ def test_dns_a_record_roundtrip():
 
 def test_dns_cname_record_roundtrip():
     from ldap_shell.ldap_modules.set_dns.ldap_module import (
+        describe_dns_record,
         encode_dns_count_name,
+        pack_dns_a,
         pack_dns_cname,
         unpack_dns_type,
     )
@@ -93,6 +95,8 @@ def test_dns_cname_record_roundtrip():
     assert encoded[1] == 3
     assert b'server' in encoded
     assert encoded.endswith(b'\x00')
+    assert describe_dns_record(blob) == 'CNAME server.domain.local'
+    assert describe_dns_record(pack_dns_a('10.0.0.5')) == 'A 10.0.0.5'
     try:
         encode_dns_count_name('')
     except ValueError:
