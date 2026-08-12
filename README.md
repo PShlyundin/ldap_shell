@@ -57,6 +57,10 @@ ldap_shell domain.local/user:password set_keycred john add
 ldap_shell domain.local/user:password set_dns wpad add A 10.0.0.5
 ldap_shell domain.local/user:password set_dns www add CNAME server.domain.local
 ldap_shell domain.local/user:password set_badsuccessor add Administrator
+ldap_shell domain.local/user:password get_writable
+ldap_shell domain.local/user:password get_asreproast
+ldap_shell domain.local/user:password get_pre2k
+ldap_shell domain.local/user:password get_desc pass
 ```
 
 `-non-interactive` reads commands from stdin (one per line).
@@ -79,6 +83,8 @@ Get Info
     get_asreproast [target] [file] - AS-REP roastable users + hashcat hashes
     get_children [target] - List child objects of a container
     get_delegation [target] - Unconstrained / constrained / RBCD
+    get_desc [needle] - User descriptions (passwords often leak here)
+    get_pre2k [computer] - Unused computers (default password = short name)
     get_dns [name] - AD-integrated DNS nodes (decoded A/CNAME)
     get_group_users group - Get all users in a group
     get_kerberoast [target] [file] - Kerberoastable users + hashcat TGS

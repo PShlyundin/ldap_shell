@@ -21,7 +21,7 @@ def test_module_loader_includes_new_commands():
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
         'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
         'add_sid_history', 'get_kerberoast', 'set_delegation', 'set_keycred',
-        'set_dns', 'set_badsuccessor',
+        'set_dns', 'set_badsuccessor', 'get_pre2k', 'get_desc',
     ):
         assert required in names
 
