@@ -20,6 +20,7 @@ def test_module_loader_includes_new_commands():
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
         'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
         'add_sid_history', 'get_kerberoast', 'set_delegation', 'set_keycred',
+        'set_dns',
     ):
         assert required in names
 
@@ -37,6 +38,43 @@ def test_roast_hashcat_formats():
     assert asrep.startswith('$krb5asrep$23$alice@LAB.LOCAL:')
     tgs = format_tgs('sql', 'lab.local', 'MSSQLSvc/db.lab.local', 23, cipher)
     assert tgs.startswith('$krb5tgs$23$*sql$LAB.LOCAL$MSSQLSvc/db.lab.local*')
+
+
+def test_dns_a_record_roundtrip():
+    from ldap_shell.ldap_modules.set_dns.ldap_module import pack_dns_a, unpack_dns_type
+
+    blob = pack_dns_a('10.0.0.5', ttl=180, serial=7)
+    assert unpack_dns_type(blob) == 1
+    assert blob[-4:] == bytes((10, 0, 0, 5))
+    try:
+        pack_dns_a('not-an-ip')
+    except ValueError:
+        return
+    raise AssertionError('expected ValueError')
+
+
+def test_dns_cname_record_roundtrip():
+    from ldap_shell.ldap_modules.set_dns.ldap_module import (
+        describe_dns_record,
+        encode_dns_count_name,
+        pack_dns_a,
+        pack_dns_cname,
+        unpack_dns_type,
+    )
+
+    blob = pack_dns_cname('server.domain.local')
+    assert unpack_dns_type(blob) == 5
+    encoded = encode_dns_count_name('server.domain.local')
+    assert encoded[1] == 3
+    assert b'server' in encoded
+    assert encoded.endswith(b'\x00')
+    assert describe_dns_record(blob) == 'CNAME server.domain.local'
+    assert describe_dns_record(pack_dns_a('10.0.0.5')) == 'A 10.0.0.5'
+    try:
+        encode_dns_count_name('')
+    except ValueError:
+        return
+    raise AssertionError('expected ValueError')
 
 
 def test_kerberoast_and_delegation_args():
