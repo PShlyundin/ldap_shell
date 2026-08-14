@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 from ldap_shell.utils.ace_utils import AceUtils
+from ldap_shell.utils.ldap_utils import LdapUtils
 from ldap_shell.utils.module_loader import ModuleLoader
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +21,7 @@ def test_module_loader_includes_new_commands():
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
         'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
         'add_sid_history', 'get_kerberoast', 'set_delegation', 'set_keycred',
-        'set_dns', 'set_badsuccessor',
+        'set_dns', 'set_badsuccessor', 'get_pre2k', 'get_desc', 'get_policy',
     ):
         assert required in names
 
@@ -28,6 +29,24 @@ def test_module_loader_includes_new_commands():
 def test_describe_mask_generic_all():
     names = AceUtils.describe_mask(0x000F01FF)
     assert 'GenericAll' in names
+
+
+def test_filetime_span_policy():
+    from ldap_shell.ldap_modules.get_policy.ldap_module import filetime_span
+
+    assert filetime_span(None) == '-'
+    assert filetime_span(0) == 'never'
+    day = -86400 * 10_000_000
+    assert filetime_span(day) == '1.0d'
+
+
+def test_suggest_abuse_maps_keycred_and_owner():
+    assert AceUtils.suggest_abuse('john', ['WriteProperty'], 'msDS-KeyCredentialLink') == 'set_keycred john add'
+    assert AceUtils.suggest_abuse('admin', ['WriteOwner']) == 'set_owner admin'
+    assert AceUtils.suggest_abuse('OU', ['WriteDacl']).startswith('dacl_modify')
+    assert AceUtils.object_type_name(
+        LdapUtils.string_to_bin('5b47d60f-6090-40b2-9f37-2a4de88f3063')
+    ) == 'msDS-KeyCredentialLink'
 
 
 def test_roast_hashcat_formats():
