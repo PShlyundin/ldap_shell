@@ -74,7 +74,7 @@ class LdapShellModule(BaseLdapModule):
             nthash = SecurityUtils.calculate_ntlm(password)
 
         if self.client.rebind(user=f'{domain}\\{username}', password=f'{lmhash}:{nthash}', authentication='NTLM'):
-            self.log.info('Success! User %s was changed to %s', old_user, username)
+            self.log.info(f'Success! User {old_user} was changed to {username}')
             return f'{username}# '
 
         self.log.error('Failed to switch user. Check password.')
@@ -82,5 +82,5 @@ class LdapShellModule(BaseLdapModule):
             try:
                 self.client.rebind(user=f'{domain}\\{old_user}', password=old_password, authentication=old_auth)
             except Exception as exc:
-                self.log.error('Failed to restore previous session: %s', exc)
+                self.log.error(f'Failed to restore previous session: {exc}')
         return False

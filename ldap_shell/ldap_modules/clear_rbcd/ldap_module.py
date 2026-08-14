@@ -74,7 +74,7 @@ class LdapShellModule(BaseLdapModule):
             sd_data = self.client.entries[0]['msDS-AllowedToActOnBehalfOfOtherIdentity'].raw_values
             if target_sid:
                 if not sd_data:
-                    self.log.info('No RBCD permissions set on %s', self.args.target)
+                    self.log.info(f'No RBCD permissions set on {self.args.target}')
                     return
                 sd = SR_SECURITY_DESCRIPTOR(data=sd_data[0])
                 sd['Dacl'].aces = [
@@ -86,12 +86,9 @@ class LdapShellModule(BaseLdapModule):
                     {'msDS-AllowedToActOnBehalfOfOtherIdentity': [(ldap3.MODIFY_REPLACE, [sd.getData()])]}
                 )
                 if self.client.result['result'] == 0:
-                    self.log.info(
-                        'RBCD permissions cleared successfully! %s can no longer impersonate users on %s',
-                        self.args.grantee, self.args.target
-                    )
+                    self.log.info(f'RBCD permissions cleared successfully! {self.args.grantee} can no longer impersonate users on {self.args.target}')
                 else:
-                    self.log.error('Failed to modify RBCD permissions: %s', self.client.result['description'])
+                    self.log.error(f'Failed to modify RBCD permissions: {self.client.result["description"]}')
             else:
                 sd = LdapUtils.create_empty_sd()
                 self.client.modify(
@@ -101,7 +98,7 @@ class LdapShellModule(BaseLdapModule):
                 if self.client.result['result'] == 0:
                     self.log.info('RBCD permissions cleared successfully!')
                 else:
-                    self.log.error('Failed to clear RBCD permissions: %s', self.client.result['description'])
+                    self.log.error(f'Failed to clear RBCD permissions: {self.client.result["description"]}')
 
         except Exception as e:
             self.log.error(f'Error processing security descriptor: {str(e)}')
