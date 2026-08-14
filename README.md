@@ -131,7 +131,7 @@ Misc
     disable_account / enable_account
     restore target [target_dn] - Restore from AD recycle bin
     start_tls
-    switch_user username [password]
+    switch_user username [password|pfx|pem] [pfx-pass|key]
 
 Other
     help [command]

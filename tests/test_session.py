@@ -17,12 +17,31 @@ from ldap_shell.session import (
     _looks_like_starttls_fallback,
     _ntlm_connection_kwargs,
     _pfx_to_pem_paths,
+    adopt_ldap_connection,
     connect_from_options,
     perform_ldap_connection,
     username_from_x509,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_adopt_ldap_connection_replaces_state():
+    class _Conn:
+        def __init__(self, user, bound=True):
+            self.user = user
+            self.bound = bound
+            self.unbound = False
+
+        def unbind(self):
+            self.unbound = True
+            self.bound = False
+
+    dst = _Conn('old')
+    src = _Conn('new')
+    adopt_ldap_connection(dst, src)
+    assert dst.user == 'new'
+    assert dst.unbound is False
 
 
 def test_gc_ports():
