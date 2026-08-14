@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection    
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 
 class LdapShellModule(BaseLdapModule):
     """Module for retrieves all groups this user is a member of"""
@@ -26,7 +26,7 @@ class LdapShellModule(BaseLdapModule):
     class ModuleArgs(BaseModel):
         """Model for describing module arguments.
         
-        Field() to configure each argument with:
+        arg_field() to configure each argument with:
            - default value (None for optional args)
            - description - explains the argument's purpose
            - arg_type - one of ArgumentType enum values:
@@ -38,19 +38,19 @@ class LdapShellModule(BaseLdapModule):
              
         Example:
             class ModuleArgs(BaseModel):
-                user: str = Field(
+                user: str = arg_field(
                     ..., # This argument is required
                     description="Target AD user",
                     arg_type=ArgumentType.USER
                 )
-                group: Optional[str] = Field(
+                group: Optional[str] = arg_field(
                     None, # This argument is not required
                     description="Optional AD group", 
                     arg_type=ArgumentType.GROUP
                 )
         """
 
-        example_arg: Optional[str] = Field(
+        example_arg: Optional[str] = arg_field(
             None,  # This argument is not required
             description="Example argument",
             arg_type=[ArgumentType.STRING, ArgumentType.USER, ArgumentType.GROUP, ArgumentType.COMPUTER]  # Changed to list of types

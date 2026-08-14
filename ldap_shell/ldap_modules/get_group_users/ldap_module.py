@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection    
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 class LdapShellModule(BaseLdapModule):
@@ -23,7 +23,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Get Info" # Get Info, Abuse ACL, Misc and Other.
     LDAP_MATCHING_RULE_IN_CHAIN = '1.2.840.113556.1.4.1941'
     class ModuleArgs(BaseModel):
-        group: Optional[str] = Field(
+        group: Optional[str] = arg_field(
             ...,  # This argument is required
             description="Group name",
             arg_type=ArgumentType.GROUP

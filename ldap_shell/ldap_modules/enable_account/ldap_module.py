@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 import re
 from ldap3.utils.conv import escape_filter_chars
@@ -25,7 +25,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Misc"
 
     class ModuleArgs(BaseModel):
-        username: str = Field(
+        username: str = arg_field(
             description="Username to enable",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER]
         )

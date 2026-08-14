@@ -3,9 +3,9 @@ import re
 
 from ldap3 import MODIFY_ADD, Connection
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from ldap_shell.ldap_modules.base_module import ArgumentType, BaseLdapModule
+from ldap_shell.ldap_modules.base_module import ArgumentType, BaseLdapModule, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 SID_RE = re.compile(r'^S-\d+(-\d+)+$', re.I)
@@ -22,11 +22,11 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
-        target: str = Field(
+        target: str = arg_field(
             description="Account that receives sIDHistory",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER]
         )
-        sid_or_group: str = Field(
+        sid_or_group: str = arg_field(
             description="SID or a group/user name to resolve in this forest",
             arg_type=ArgumentType.STRING
         )

@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 
@@ -18,7 +18,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Get Info"
 
     class ModuleArgs(BaseModel):
-        name: Optional[str] = Field(
+        name: Optional[str] = arg_field(
             None,
             description="Optional DNS node name filter",
             arg_type=ArgumentType.STRING

@@ -32,7 +32,12 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.2"]
-dev = ["pytest>=8.0", "mcp>=1.2"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.8",
+    "mcp>=1.2",
+]
 
 [project.scripts]
 ldap_shell = "ldap_shell.__main__:main"
@@ -50,3 +55,36 @@ ldap_shell = ["ldap_modules/*/ldap_module.py", "ldap_modules/*/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-q"
+
+[tool.coverage.run]
+branch = true
+source = ["ldap_shell"]
+omit = [
+    "ldap_shell/krb5/*",
+    "ldap_shell/utils/nt_errors.py",
+    "ldap_shell/utils/structure.py",
+    "ldap_shell/utils/ldaptypes.py",
+    "ldap_shell/utils/myPKINIT.py",
+    "ldap_shell/utils/spnego.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = [
+    "ldap_shell/krb5",
+    "ldap_shell/utils/nt_errors.py",
+    "ldap_shell/utils/structure.py",
+    "ldap_shell/utils/ldaptypes.py",
+    "ldap_shell/utils/myPKINIT.py",
+    "ldap_shell/utils/spnego.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

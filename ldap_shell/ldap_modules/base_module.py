@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import List, Annotated
-from pydantic import BaseModel, BeforeValidator
+from typing import Annotated, List
+
+from pydantic import BaseModel, BeforeValidator, Field
 
 def parse_attributes(value) -> List[str]:
     """Convert input to list of attributes.
@@ -30,6 +31,14 @@ class ArgumentType(Enum):
     MASK = 'mask'
     BOOLEAN = 'boolean'
     ACTION = 'action'
+
+def arg_field(*args, arg_type=ArgumentType.STRING, **kwargs):
+    """Field() wrapper that keeps the shell completer type in json_schema_extra."""
+    extra = kwargs.pop('json_schema_extra', None)
+    extra = dict(extra) if extra else {}
+    extra['arg_type'] = arg_type
+    return Field(*args, json_schema_extra=extra, **kwargs)
+
 
 class ModuleArgument:
     def __init__(self, name: str, arg_type: ArgumentType, description: str, required: bool):

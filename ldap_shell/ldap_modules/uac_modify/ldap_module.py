@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection, MODIFY_REPLACE
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, Union
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 from ldap3.utils.conv import escape_filter_chars
 
@@ -74,15 +74,15 @@ class LdapShellModule(BaseLdapModule):
     }
 
     class ModuleArgs(BaseModel):
-        samaccountname: str = Field(
+        samaccountname: str = arg_field(
             description="sAMAccountName of the target user/computer",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER]
         )
-        action: str = Field(
+        action: str = arg_field(
             description="Action to perform: add, del, or list",
             arg_type=ArgumentType.ACTION
         )
-        flags: Optional[str] = Field(
+        flags: Optional[str] = arg_field(
             default=None,
             description="UAC flags to modify (comma-separated for multiple flags). "
                        "Can be flag names, decimal values, or hex values (0x prefix)",
