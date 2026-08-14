@@ -59,6 +59,7 @@ ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.l
 ldap_shell domain.local/user:password set_keycred john add
 ldap_shell domain.local/user:password set_dns wpad add A 10.0.0.5
 ldap_shell domain.local/user:password set_dns www add CNAME server.domain.local
+ldap_shell domain.local/user:password set_badsuccessor add Administrator
 ```
 
 `-non-interactive` reads commands from stdin (one per line).
@@ -94,6 +95,7 @@ Get Info
 
 Abuse ACL
     add_sid_history target sid_or_group - Add a SID to sIDHistory
+    set_badsuccessor action [victim] [ou|dmsa] [name] - dMSA / BadSuccessor (+ TGT if readable)
     add_user_to_group user group - Add a user to a group
     change_password user [password] - Change password (needs LDAPS/StartTLS)
     clear_rbcd target [grantee] - Clear RBCD
