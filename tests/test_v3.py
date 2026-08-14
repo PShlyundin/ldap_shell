@@ -40,6 +40,22 @@ def test_filetime_span_policy():
     assert filetime_span(day) == '1.0d'
 
 
+def test_empty_sd_roundtrip_bytes():
+    blob = AceUtils.create_empty_sd().getData()
+    assert isinstance(blob, (bytes, bytearray))
+    assert len(blob) > 8
+    restored = AceUtils.create_empty_sd()
+    restored.fromString(blob)
+    assert restored['OwnerSid'].formatCanonical() == 'S-1-5-32-544'
+
+
+def test_create_ace_inherit_flag():
+    ace = AceUtils.create_allow_ace('S-1-5-21-1-2-3-4', inherit=True)
+    assert ace['AceFlags'] == 0x03
+    plain = AceUtils.createACE('S-1-5-21-1-2-3-4')
+    assert plain['AceFlags'] == 0x00
+
+
 def test_suggest_abuse_maps_keycred_and_owner():
     assert AceUtils.suggest_abuse('john', ['WriteProperty'], 'msDS-KeyCredentialLink') == 'set_keycred john add'
     assert AceUtils.suggest_abuse('admin', ['WriteOwner']) == 'set_owner admin'

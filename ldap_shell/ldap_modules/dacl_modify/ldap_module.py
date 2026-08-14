@@ -34,6 +34,11 @@ class LdapShellModule(BaseLdapModule):
     ```
     Add write permission for msDS-AllowedToActOnBehalfOfOtherIdentity property:
     `dacl_modify "CN=web_svc,CN=Computers,DC=roasting,DC=lab" admin add WritetoRBCD`
+    Inherit to descendants (OU/container):
+    `dacl_modify "OU=work,DC=domain,DC=local" john add GenericAll inherit`
+    Backup / restore the raw security descriptor:
+    `dacl_modify admin admin.dacl backup`
+    `dacl_modify admin admin.dacl restore`
     ```
     [INFO] DACL modified successfully!
     ```
@@ -46,16 +51,22 @@ class LdapShellModule(BaseLdapModule):
             arg_type=ArgumentType.DN
         )
         grantee: str = arg_field(
-            description="Account to modify permissions for",
-            arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP]
+            description="Account to modify permissions for, or filename for backup/restore",
+            arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP, ArgumentType.STRING]
         )
         action: str = arg_field(
-            description="Action: add/del",
+            description="Action: add/del/backup/restore",
             arg_type=ArgumentType.ADD_DEL
         )
         mask: str = arg_field(
+            None,
             description="Permission type (genericall, writedacl etc.) or object GUID",
             arg_type=ArgumentType.MASK
+        )
+        inherit: str = arg_field(
+            None,
+            description="If inherit/true, ACE applies to this object and descendants",
+            arg_type=ArgumentType.BOOLEAN,
         )
 
     def __init__(self, args_dict: dict, 
@@ -81,12 +92,48 @@ class LdapShellModule(BaseLdapModule):
         }
 
     def __call__(self):
-        # Get target DN
-        if not LdapUtils.check_dn(self.client, self.domain_dumper, self.args.target):
-            self.log.error(f'Invalid DN: {self.args.target}')
+        action = (self.args.action or '').lower()
+        target_dn = LdapUtils.resolve_dn(self.client, self.domain_dumper, self.args.target)
+        if not target_dn:
+            if LdapUtils.check_dn(self.client, self.domain_dumper, self.args.target):
+                target_dn = self.args.target
+            else:
+                self.log.error(f'Target not found: {self.args.target}')
+                return
+
+        if action in ('backup', 'restore'):
+            path = self.args.grantee
+            if not path:
+                self.log.error('Filename is required for backup/restore')
+                return
+            if action == 'backup':
+                sd_data, _ = LdapUtils.get_info_by_dn(self.client, self.domain_dumper, target_dn)
+                if not sd_data:
+                    self.log.error('Empty security descriptor')
+                    return
+                with open(path, 'wb') as handle:
+                    handle.write(sd_data[0])
+                self.log.info(f'Saved DACL of {target_dn} to {path} ({len(sd_data[0])} bytes)')
+                return
+            with open(path, 'rb') as handle:
+                blob = handle.read()
+            if not blob:
+                self.log.error(f'Empty file: {path}')
+                return
+            try:
+                SR_SECURITY_DESCRIPTOR(data=blob)
+            except Exception as exc:
+                self.log.error(f'Not a security descriptor: {exc}')
+                return
+            if not self.client.modify(
+                target_dn,
+                {'nTSecurityDescriptor': [(MODIFY_REPLACE, [blob])]},
+                controls=ldap3.protocol.microsoft.security_descriptor_control(sdflags=0x04),
+            ):
+                self.log.error(f'Failed to restore DACL: {self.client.result}')
+                return
+            self.log.info(f'Restored DACL on {target_dn} from {path}')
             return
-        else:
-            target_dn = self.args.target
 
         # Get grantee information
         grantee_sid = LdapUtils.get_sid(self.client, self.domain_dumper, self.args.grantee)
@@ -103,6 +150,9 @@ class LdapShellModule(BaseLdapModule):
             return
 
         # Define ACE parameters
+        if not self.args.mask:
+            self.log.error('mask is required for add/del')
+            return
         if re.match(r'^0x[0-9a-fA-F]+$', self.args.mask):
             mask_value = int(self.args.mask, 16)
             object_type = None
@@ -121,10 +171,12 @@ class LdapShellModule(BaseLdapModule):
 
         # Create/delete ACE
         if self.args.action.lower() == 'add':
+            inherit = str(self.args.inherit or '').lower() in ('inherit', 'true', '1', 'yes')
             ace = AceUtils.createACE(
                 sid=grantee_sid, 
                 access_mask=mask_value,
-                object_type=object_type
+                object_type=object_type,
+                inherit=inherit,
             )
             sd['Dacl'].aces.append(ace)
         elif self.args.action.lower() == 'del':
