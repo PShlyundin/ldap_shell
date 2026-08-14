@@ -8,7 +8,7 @@ with open('README.md', mode='r', encoding='utf-8') as f:
 
 setup(
     name='ldap_shell',
-    version='3.0.0',
+    version='3.1.0',
     description='Interactive and inline LDAP shell for Active Directory ACL abuse',
     long_description=readme,
     long_description_content_type='text/markdown',

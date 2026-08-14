@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ldap_shell"
-version = "3.0.0"
+version = "3.1.0"
 description = "Interactive and inline LDAP shell for Active Directory ACL abuse"
 readme = "README.md"
 license = { file = "LICENSE" }

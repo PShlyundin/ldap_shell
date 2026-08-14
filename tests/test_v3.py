@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_version_is_3():
     setup = (ROOT / 'setup.py').read_text()
     pyproject = (ROOT / 'pyproject.toml').read_text()
-    assert "version='3.0.0'" in setup
-    assert 'version = "3.0.0"' in pyproject
+    assert "version='3.1.0'" in setup
+    assert 'version = "3.1.0"' in pyproject
 
 
 def test_module_loader_includes_new_commands():
@@ -29,6 +29,16 @@ def test_module_loader_includes_new_commands():
 def test_describe_mask_generic_all():
     names = AceUtils.describe_mask(0x000F01FF)
     assert 'GenericAll' in names
+
+
+def test_roast_hashcat_formats():
+    from ldap_shell.utils.roast_utils import format_asrep, format_tgs
+
+    cipher = bytes(range(32))
+    asrep = format_asrep('alice', 'lab.local', 23, cipher)
+    assert asrep.startswith('$krb5asrep$23$alice@LAB.LOCAL:')
+    tgs = format_tgs('sql', 'lab.local', 'MSSQLSvc/db.lab.local', 23, cipher)
+    assert tgs.startswith('$krb5tgs$23$*sql$LAB.LOCAL$MSSQLSvc/db.lab.local*')
 
 
 def test_filetime_span_policy():
@@ -65,14 +75,21 @@ def test_suggest_abuse_maps_keycred_and_owner():
     ) == 'msDS-KeyCredentialLink'
 
 
-def test_roast_hashcat_formats():
-    from ldap_shell.utils.roast_utils import format_asrep, format_tgs
+def test_arg_field_does_not_emit_pydantic_extra_kwarg_warning():
+    import warnings
 
-    cipher = bytes(range(32))
-    asrep = format_asrep('alice', 'lab.local', 23, cipher)
-    assert asrep.startswith('$krb5asrep$23$alice@LAB.LOCAL:')
-    tgs = format_tgs('sql', 'lab.local', 'MSSQLSvc/db.lab.local', 23, cipher)
-    assert tgs.startswith('$krb5tgs$23$*sql$LAB.LOCAL$MSSQLSvc/db.lab.local*')
+    from pydantic import BaseModel
+    from pydantic.warnings import PydanticDeprecatedSince20
+
+    from ldap_shell.ldap_modules.base_module import ArgumentType, arg_field
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', PydanticDeprecatedSince20)
+
+        class Sample(BaseModel):
+            user: str = arg_field(description='u', arg_type=ArgumentType.USER)
+
+    assert Sample.model_fields['user'].json_schema_extra['arg_type'] is ArgumentType.USER
 
 
 def test_dns_a_record_roundtrip():
@@ -156,23 +173,6 @@ def test_kerberoast_and_delegation_args():
     source = (ROOT / 'ldap_shell/ldap_modules/get_kerberoast/ldap_module.py').read_text()
     assert 'servicePrincipalName=*' in source
     assert 'objectCategory=person' in source
-
-
-def test_arg_field_does_not_emit_pydantic_extra_kwarg_warning():
-    import warnings
-
-    from pydantic import BaseModel
-    from pydantic.warnings import PydanticDeprecatedSince20
-
-    from ldap_shell.ldap_modules.base_module import ArgumentType, arg_field
-
-    with warnings.catch_warnings():
-        warnings.simplefilter('error', PydanticDeprecatedSince20)
-
-        class Sample(BaseModel):
-            user: str = arg_field(description='u', arg_type=ArgumentType.USER)
-
-    assert Sample.model_fields['user'].json_schema_extra['arg_type'] is ArgumentType.USER
 
 
 def test_modules_call_arg_field_not_field_arg_type():
