@@ -12,6 +12,11 @@ def test_inline_cli_positional_and_dash_c():
     assert collect_inline_commands(empty) == []
 
 
+def test_inline_keeps_unknown_dashed_args():
+    dashed = parse_args(['lab.local/user:pass', 'get_acl', '--not-a-cli-flag'])
+    assert collect_inline_commands(dashed) == ['get_acl --not-a-cli-flag']
+
+
 def test_inline_cli_entry_exists():
     from pathlib import Path
     source = (Path(__file__).resolve().parents[1] / 'ldap_shell/__main__.py').read_text()
