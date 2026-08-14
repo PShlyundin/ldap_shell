@@ -4,7 +4,7 @@ Interactive and **inline** LDAP client for Active Directory enumeration and ACL 
 
 Version **3.0.0**. Requires **Python 3.10+**.
 
-If a DC rejects plaintext LDAP because signing or channel binding is required, the client retries over LDAPS. Stock `ldap3` still cannot do EPA on plain LDAP; use `-use-ldaps` when you already know the DC is locked down.
+If a DC rejects plaintext LDAP because signing or channel binding is required, the client tries **StartTLS**, then **LDAPS**. If the installed `ldap3` supports `session_security` / `channel_binding`, those are turned on automatically. Stock `ldap3` 2.9.1 cannot send EPA tokens. `pip install ".[epa]"` swaps in `ldap3-bleeding-edge`, which can. Use `-use-ldaps` when you already know the DC is locked down.
 
 ## Installation
 
@@ -14,6 +14,8 @@ cd ldap_shell
 python3 -m pip install .
 # MCP server extra:
 python3 -m pip install ".[mcp]"
+# LDAP signing / EPA (replaces stock ldap3 with ldap3-bleeding-edge):
+python3 -m pip install ".[epa]"
 ```
 
 ```bash
@@ -28,10 +30,18 @@ uv pip install .
 ```bash
 ldap_shell domain.local/user:password
 ldap_shell domain.local/user:password -dc-ip 192.168.1.2
+ldap_shell domain.local/user:password -gc
+ldap_shell domain.local/ -anon
+ldap_shell domain.local/
 ldap_shell domain.local/user -hashes aad3b435b51404eeaad3b435b51404ee:aad3b435b51404eeaad3b435b51404e1
 export KRB5CCNAME=/home/user/ticket.ccache
 ldap_shell -k -no-pass -dc-host dc.domain.local domain.local/user
+ldap_shell domain.local/user -pfx user.pfx -pfx-pass 'pfx-secret' -dc-host dc.domain.local
+ldap_shell domain.local/ -pfx user.pfx -cert-auth external
+ldap_shell domain.local/user -cert user.pem -key user.key -dc-host dc.domain.local
 ```
+
+`-pfx` / `-cert` default to **PKINIT** (TGT, then Kerberos LDAP) when `-dc-host` and a username (target or UPN in the cert) are present. `-cert-auth external` forces LDAPS SASL EXTERNAL. `-cert-auth auto` falls back to EXTERNAL if PKINIT fails. Same flags work on `ldap_shell-mcp` / the MCP `connect` tool (`LDAP_SHELL_PFX`, `LDAP_SHELL_CERT_AUTH`).
 
 ### Inline CLI
 
