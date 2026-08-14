@@ -27,3 +27,11 @@ def test_epa_extra_is_optional():
     assert '.[epa]' in readme
     assert 'ldap_shell[epa]' in session
     assert 'ldap3>=2.9.1,<3' in pyproject
+
+
+def test_set_keycred_is_persist_not_roast():
+    source = (ROOT / 'ldap_shell/ldap_modules/set_keycred/ldap_module.py').read_text()
+    assert 'msDS-KeyCredentialLink' in source
+    assert 'GETPAC' not in source
+    assert "action == 'list'" in source
+    assert "action == 'del'" in source
