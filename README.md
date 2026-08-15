@@ -37,6 +37,8 @@ ldap_shell -k -no-pass domain.local/user
 ```
 Get Info
     dump [output_dir] - Dumps the domain
+    get_acl target [all|principal] - Analyze an object's DACL: resolve trustees, decode rights, flag abusable ACEs and suggest the abuse command
+    get_writable [target] - List what the current account can write (effective rights), with attack hints
     get_group_users group - Get all users in a group
     get_laps_gmsa [target] - Retrieves LAPS and GMSA passwords associated with a given account (sAMAccountName) or for all. Supported LAPS 2.0
     get_maq [user] - Get Machine Account Quota and allowed users
