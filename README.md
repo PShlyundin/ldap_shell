@@ -51,6 +51,7 @@ Abuse ACL
     del_dcsync target - Remove DCSync rights from user/computer by deleting ACEs in domain DACL
     del_user_from_group user group - Delete a user from a group
     get_ntlm target - Get NTLM hash using Shadow Credentials attack (requires write access to msDS-KeyCredentialLink)
+    set_attribute target attribute [value] [action] - Write, append or delete any attribute; value type (string/int/bool/binary) is auto-detected from the AD schema
     set_dcsync target - If you have write access to the domain object, assign the DS-Replication right to the selected user
     set_dontreqpreauth target flag - Targeted AsRepRoast attack. Set or unset DONT_REQUIRE_PREAUTH flag for a target user.
     set_genericall target [grantee] - Set GenericAll permissions for a target object
