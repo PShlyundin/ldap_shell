@@ -161,6 +161,7 @@ class LdapShellModule(BaseLdapModule):
 
         owner_sid = sd['OwnerSid'].formatCanonical()
         owner_name = self._resolve_sid(owner_sid)
+        protected = bool(sd['Control'] & 0x1000)  # SE_DACL_PROTECTED
 
         aces = sd['Dacl'].aces if sd['Dacl'] else []
         total = len(aces)
@@ -183,7 +184,8 @@ class LdapShellModule(BaseLdapModule):
         # Sort by severity (crit first), inherited last within same severity
         findings.sort(key=lambda x: (acl.SEVERITY_ORDER[x['severity']], x['inherited']))
 
-        self.log.info(f"DACL of {target_dn}  (owner: {owner_name})")
+        prot_note = "  [PROTECTED: adminCount/SDProp - DACL edits revert ~60 min]" if protected else ""
+        self.log.info(f"DACL of {target_dn}  (owner: {owner_name}){prot_note}")
         if show_all or principal_sid:
             scope = 'all ACEs' if show_all else f"ACEs for {self.args.filter}"
             self.log.info(f"{len(findings)} of {total} {scope}")
