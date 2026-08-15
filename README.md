@@ -72,6 +72,7 @@ Misc
     enable_account username - Enable a user account in the domain
     start_tls  - Start TLS connection with LDAP server
     switch_user username [password] - Switch current user to another
+    uac_modify samaccountname action [flags] - Modify UserAccountControl flags on user or computer accounts
 
 Other
     help [command] - Show help
