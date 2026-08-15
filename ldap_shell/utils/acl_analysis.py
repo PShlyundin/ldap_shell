@@ -54,13 +54,20 @@ EXTENDED_RIGHTS = {
     'ba33815a-4f93-4c76-87f3-57574bff8109': ('Migrate-SID-History', 'SID History injection', HIGH, None),
 }
 
-# --- Property / attribute GUIDs (WriteProperty object ACEs) ---------------- #
+# --- Abusable attributes (WriteProperty object ACEs), keyed by schemaIDGUID - #
 # guid (lowercase) -> (friendly name, attack label, severity, command template)
-PROPERTY_RIGHTS = {
-    '3f78c3e5-f79a-46bd-a0b8-9d18116ddc79': ('ms-DS-AllowedToActOnBehalfOfOtherIdentity', 'RBCD', HIGH, 'set_rbcd {target} <grantee>'),
-    '5b47d60f-6090-40b2-9f37-2a4de88f3063': ('ms-DS-KeyCredentialLink', 'Shadow Credentials', HIGH, 'get_ntlm {target}'),
-    'bf9679c0-0de6-11d0-a285-00aa003049e2': ('Member', 'Add member to group', HIGH, 'add_user_to_group <you> {target}'),
-    'f3a64788-5306-11d1-a9c5-0000f80367c1': ('Validated-SPN', 'Targeted Kerberoast', MED, 'set_spn {target} add <SPN>'),
+ABUSABLE_ATTRS = {
+    'bf9679a8-0de6-11d0-a285-00aa003049e2': ('scriptPath', 'Logon script -> code exec at victim logon', HIGH, 'set_attribute {target} scriptPath <\\\\host\\share\\x.cmd>'),
+    'bf967a05-0de6-11d0-a285-00aa003049e2': ('profilePath', 'Profile path hijack (UNC coerce)', MED, 'set_attribute {target} profilePath <\\\\host\\share>'),
+    'f3a64788-5306-11d1-a9c5-0000f80367c1': ('servicePrincipalName', 'Targeted Kerberoast', HIGH, 'set_spn {target} add <SPN>'),
+    'bf9679c0-0de6-11d0-a285-00aa003049e2': ('member', 'Add member to group', HIGH, 'add_user_to_group <you> {target}'),
+    'bf967a68-0de6-11d0-a285-00aa003049e2': ('userAccountControl', 'UAC abuse (AS-REP roast / disable / delegation)', HIGH, 'uac_modify {target} add DONT_REQUIRE_PREAUTH'),
+    '5b47d60f-6090-40b2-9f37-2a4de88f3063': ('msDS-KeyCredentialLink', 'Shadow Credentials', HIGH, 'get_ntlm {target}'),
+    '3f78c3e5-f79a-46bd-a0b8-9d18116ddc79': ('msDS-AllowedToActOnBehalfOfOtherIdentity', 'RBCD', HIGH, 'set_rbcd {target} <grantee>'),
+    '800d94d7-b7a1-42a1-b14d-7cae1423d07f': ('msDS-AllowedToDelegateTo', 'Constrained delegation abuse', HIGH, None),
+    'f30e3bbe-9ff0-11d1-b603-0000f80367c1': ('gPLink', 'GPO link abuse (OU-linked)', HIGH, None),
+    'bf9679e1-0de6-11d0-a285-00aa003049e2': ('unicodePwd', 'Set password (needs LDAPS)', HIGH, 'change_password {target} <NewPass>'),
+    '888eedd6-ce04-df40-b462-b8a50e41ba38': ('msDS-GroupMSAMembership', 'Read gMSA password', HIGH, 'get_laps_gmsa {target}'),
 }
 
 # --- Well-known / privileged trustees (hidden unless show_all) ------------- #
@@ -76,15 +83,23 @@ WELL_KNOWN_SIDS = {
     'S-1-5-32-549': 'Server Operators',
     'S-1-5-32-550': 'Print Operators',
     'S-1-5-32-551': 'Backup Operators',
+    'S-1-5-32-554': 'Pre-Windows 2000 Compatible Access',
+    'S-1-5-32-560': 'Windows Authorization Access Group',
+    'S-1-5-32-561': 'Terminal Server License Servers',
 }
-# Trustees considered "already privileged" -> not interesting as an attack path
+# Trustees considered "already privileged" or default service groups whose
+# default ACEs are noise -> not interesting as an attack path
 PRIVILEGED_SIDS = {'S-1-5-18', 'S-1-5-32-544', 'S-1-5-9', 'S-1-3-0', 'S-1-5-10',
-                   'S-1-5-32-548', 'S-1-5-32-549', 'S-1-5-32-550', 'S-1-5-32-551'}
+                   'S-1-5-32-548', 'S-1-5-32-549', 'S-1-5-32-550', 'S-1-5-32-551',
+                   'S-1-5-32-554', 'S-1-5-32-560', 'S-1-5-32-561', 'S-1-5-32-568',
+                   'S-1-5-32-569'}
+# Domain RIDs of default privileged / default service groups (Cert Publishers 517,
+# RAS and IAS Servers 553)
 # Domain RIDs of default privileged groups
 # 512 Domain Admins, 516 Domain Controllers, 518 Schema Admins, 519 Enterprise Admins,
 # 520 Group Policy Creator Owners, 521 RODCs, 498 Enterprise RODCs,
 # 526 Key Admins, 527 Enterprise Key Admins (default ms-DS-KeyCredentialLink writers)
-PRIVILEGED_RIDS = {512, 516, 518, 519, 520, 521, 498, 526, 527}
+PRIVILEGED_RIDS = {512, 516, 518, 519, 520, 521, 498, 526, 527, 517, 553}
 
 
 def parse_perms(mask):
@@ -151,16 +166,28 @@ def analyze_ace(ace, guid_resolver=None):
         if object_type in EXTENDED_RIGHTS:
             name, attack, sev, cmd = EXTENDED_RIGHTS[object_type]
             finding['right_name'] = name
-            if attack:
+            if attack and (mask & 0x100):  # CONTROL_ACCESS
                 finding['attacks'].append((attack, sev, cmd))
-        elif object_type in PROPERTY_RIGHTS:
-            name, attack, sev, cmd = PROPERTY_RIGHTS[object_type]
+        elif object_type in ABUSABLE_ATTRS:
+            name, attack, sev, cmd = ABUSABLE_ATTRS[object_type]
             finding['right_name'] = name
-            if (mask & 0x20) or (mask & 0x10000000):  # WriteProp or GenericAll
+            # WriteProperty / validated-write / GenericAll over this attribute
+            if attack and (mask & (0x20 | 0x08 | 0x10000000)):
                 finding['attacks'].append((attack, sev, cmd))
         else:
-            # Resolve unknown GUID against the schema if possible
-            finding['right_name'] = (guid_resolver(object_type) if guid_resolver else None) or object_type
+            # Unknown GUID: resolve against the schema and still surface any
+            # write / validated-write / extended-right as a generic finding so
+            # nothing abusable is silently hidden (matches get_writable).
+            name = guid_resolver(object_type) if guid_resolver else None
+            label = name or object_type
+            finding['right_name'] = label
+            if mask & 0x20:          # WriteProperty on some attribute/property-set
+                cmd = f'set_attribute {{target}} {name} <value>' if name else None
+                finding['attacks'].append((f'WriteProperty: {label}', MED, cmd))
+            elif mask & 0x08:        # validated write
+                finding['attacks'].append((f'Validated write: {label}', MED, None))
+            elif mask & 0x100:       # other extended right
+                finding['attacks'].append((f'ExtendedRight: {label}', MED, None))
     else:
         # --- generic (whole-object) ACE: decode by mask bits --- #
         # Real DACLs express GenericAll either as the generic bit (0x10000000)
