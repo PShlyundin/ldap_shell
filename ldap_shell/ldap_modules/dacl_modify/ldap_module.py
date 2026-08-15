@@ -88,6 +88,20 @@ class LdapShellModule(BaseLdapModule):
         else:
             target_dn = self.args.target
 
+        # AdminSDHolder/SDProp awareness: DACL changes to protected objects
+        # (adminCount=1: members of Domain Admins, etc.) are reverted by SDProp
+        # within ~60 min. This is not a failure of the modify - warn so the
+        # operator knows the change is not persistent on such targets.
+        try:
+            self.client.search(target_dn, '(objectClass=*)', attributes=['adminCount'])
+            if self.client.entries and self.client.entries[0]['adminCount'].value == 1:
+                self.log.warning(
+                    'Target is a protected object (adminCount=1): AdminSDHolder/SDProp '
+                    'will revert this DACL change within ~60 min. For persistence, target '
+                    'AdminSDHolder (CN=AdminSDHolder,CN=System,...) or a non-protected object.')
+        except Exception:
+            pass
+
         # Get grantee information
         grantee_sid = LdapUtils.get_sid(self.client, self.domain_dumper, self.args.grantee)
         if not grantee_sid:
