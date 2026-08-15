@@ -6,6 +6,7 @@ from typing import Union, Dict, Optional
 from abc import abstractmethod
 from ldap3 import SUBTREE
 import threading
+import html
 from ldap_shell.utils import history
 from ldap_shell.completers.base import ADObjectCacheManager
 
@@ -51,17 +52,17 @@ class ADObjectCompleter(BaseArgumentCompleter):
                 )
 
     def _highlight_match(self, text: str, substr: str) -> str:
-        """Highlights the matching part of the text"""
+        """Highlights the matching part of the text - escapes HTML entities"""
         if not substr:
-            return text
-            
+            return html.escape(text)
+
         index = text.lower().find(substr.lower())
         if index >= 0:
-            before = text[:index]
-            match = text[index:index + len(substr)]
-            after = text[index + len(substr):]
+            before = html.escape(text[:index])
+            match = html.escape(text[index:index + len(substr)])
+            after = html.escape(text[index + len(substr):])
             return f"{before}<b><style fg='black'>{match}</style></b>{after}"
-        return text
+        return html.escape(text)
 
     def _get_ad_objects(self):
         objects = set()
