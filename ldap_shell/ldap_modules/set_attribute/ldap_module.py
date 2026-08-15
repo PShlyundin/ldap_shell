@@ -56,8 +56,12 @@ class LdapShellModule(BaseLdapModule):
     [INFO] Attribute scriptPath updated successfully
     ```
 
-    Value with spaces/backslashes - use quotes:
-    `set_attribute john.doe profilePath "\\\\dc01\\profiles\\john"`
+    Value with spaces - use quotes. NOTE: the shell parser (shlex) eats
+    backslashes inside double quotes, so for UNC paths use SINGLE quotes
+    (kept literally) or double every backslash:
+    `set_attribute john.doe profilePath '\\\\dc01\\profiles\\john'`   (single quotes: literal)
+    Single-valued attrs (scriptPath, profilePath, ...) ignore `add` and are
+    always replaced - use the default action, not `add`.
 
     Numeric attribute - detected as Integer, parsed as a number:
     `set_attribute HOST01$ msDS-SupportedEncryptionTypes 24`
@@ -284,7 +288,16 @@ class LdapShellModule(BaseLdapModule):
             if not coerced:
                 self.log.error("action 'add' requires a value")
                 return
-            op = MODIFY_ADD
+            # 'add' on a single-valued attribute that already holds a value
+            # fails server-side with attributeOrValueExists. For single-valued
+            # attrs 'add' is semantically a replace, so fall back to it.
+            if single:
+                self.log.warning(f"{attr} is single-valued; 'add' would fail "
+                                 f"(attributeOrValueExists) - using REPLACE instead")
+                op = MODIFY_REPLACE
+                action = 'replace'  # keep success reporting consistent
+            else:
+                op = MODIFY_ADD
         else:  # del / delete
             op = MODIFY_DELETE
 
