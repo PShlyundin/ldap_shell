@@ -1,4 +1,5 @@
 import logging
+import uuid
 from ldap3 import Connection
 import ldap3
 from ldapdomaindump import domainDumper
@@ -77,6 +78,31 @@ class LdapShellModule(BaseLdapModule):
         self.client = client
         self.log = log or logging.getLogger('ldap-shell.shell')
         self._sid_cache = {}
+        self._guid_cache = {}
+
+    def _resolve_guid(self, guid):
+        """Resolve a schemaIDGUID (attribute/class) or rightsGuid (extended
+        right) to its display name. Cached; best-effort."""
+        if guid in self._guid_cache:
+            return self._guid_cache[guid]
+        name = None
+        conf = 'CN=Configuration,' + self.domain_dumper.root
+        try:
+            esc = ''.join('\\%02x' % b for b in uuid.UUID(guid).bytes_le)
+            self.client.search('CN=Schema,' + conf, f'(schemaIDGUID={esc})',
+                               attributes=['lDAPDisplayName'])
+            if self.client.entries:
+                name = self.client.entries[0]['lDAPDisplayName'].value
+            else:
+                self.client.search('CN=Extended-Rights,' + conf, f'(rightsGuid={guid})',
+                                   attributes=['displayName', 'cn'])
+                if self.client.entries:
+                    e = self.client.entries[0]
+                    name = e['displayName'].value or e['cn'].value
+        except Exception:
+            pass
+        self._guid_cache[guid] = name
+        return name
 
     def _resolve_sid(self, sid):
         if sid in acl.WELL_KNOWN_SIDS:
@@ -168,7 +194,7 @@ class LdapShellModule(BaseLdapModule):
 
         findings = []
         for ace in aces:
-            f = acl.analyze_ace(ace)
+            f = acl.analyze_ace(ace, self._resolve_guid)
             if f is None:
                 continue
             if principal_sid and f['sid'] != principal_sid:
