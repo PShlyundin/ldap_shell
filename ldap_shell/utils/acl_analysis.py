@@ -95,6 +95,12 @@ PRIVILEGED_SIDS = {'S-1-5-18', 'S-1-5-32-544', 'S-1-5-9', 'S-1-3-0', 'S-1-5-10',
                    'S-1-5-32-569'}
 # Domain RIDs of default privileged / default service groups (Cert Publishers 517,
 # RAS and IAS Servers 553)
+# Broad/default trustees: real, targeted delegations are rarely granted to
+# these, so *generic* (non-specifically-abusable) findings for them are noise
+# and hidden by default. Known high-value rights (GenericAll, DCSync, RBCD,
+# scriptPath, ...) are still shown even for these trustees.
+BROAD_SIDS = {'S-1-1-0', 'S-1-5-11', 'S-1-5-32-545'}  # Everyone, Authenticated Users, Users
+
 # Domain RIDs of default privileged groups
 # 512 Domain Admins, 516 Domain Controllers, 518 Schema Admins, 519 Enterprise Admins,
 # 520 Group Policy Creator Owners, 521 RODCs, 498 Enterprise RODCs,
@@ -159,6 +165,7 @@ def analyze_ace(ace, guid_resolver=None):
         'attacks': [],          # list of (label, severity, cmd_template)
         'right_name': None,     # friendly name for object ACEs
         'severity': LOW,
+        'generic': False,       # True for non-specifically-abusable findings
     }
 
     # --- object-specific ACE (extended right or property write) --- #
@@ -181,13 +188,18 @@ def analyze_ace(ace, guid_resolver=None):
             name = guid_resolver(object_type) if guid_resolver else None
             label = name or object_type
             finding['right_name'] = label
+            # Generic findings are marked so the default view can hide them for
+            # broad/default trustees. Unknown extended rights (Send-As, Send-To,
+            # Receive-As, ...) are almost never the abuse primitive, so they are
+            # not flagged as attacks at all - only the known ones in
+            # EXTENDED_RIGHTS are.
             if mask & 0x20:          # WriteProperty on some attribute/property-set
                 cmd = f'set_attribute {{target}} {name} <value>' if name else None
                 finding['attacks'].append((f'WriteProperty: {label}', MED, cmd))
+                finding['generic'] = True
             elif mask & 0x08:        # validated write
                 finding['attacks'].append((f'Validated write: {label}', MED, None))
-            elif mask & 0x100:       # other extended right
-                finding['attacks'].append((f'ExtendedRight: {label}', MED, None))
+                finding['generic'] = True
     else:
         # --- generic (whole-object) ACE: decode by mask bits --- #
         # Real DACLs express GenericAll either as the generic bit (0x10000000)

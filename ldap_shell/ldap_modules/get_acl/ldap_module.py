@@ -205,6 +205,10 @@ class LdapShellModule(BaseLdapModule):
                     continue
                 if acl.is_privileged_sid(f['sid']):
                     continue
+                # generic (not specifically abusable) findings for broad/default
+                # trustees (Authenticated Users, Everyone, Users) are noise
+                if f.get('generic') and f['sid'] in acl.BROAD_SIDS:
+                    continue
             findings.append(f)
 
         # Sort by severity (crit first), inherited last within same severity
