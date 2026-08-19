@@ -3,7 +3,7 @@ This project is a fork of ldap_shell from Impacket. It provides an interactive s
 
 
 ## Installation
-These tools are only compatible with Python 3.5+. Clone the repository from GitHub, install the dependencies and you should be good to go.
+These tools require Python 3.10+. Clone the repository from GitHub, install the dependencies and you should be good to go.
 Installation with pip:
 ```bash
 git clone https://github.com/PShlyundin/ldap_shell.git
@@ -18,6 +18,14 @@ uv pip install .
 ```
 
 ## Usage
+### Inline CLI
+```bash
+ldap_shell domain.local/user:password whoami
+ldap_shell domain.local/user:password -c "search \"(sAMAccountName=admin)\""
+ldap_shell domain.local/user:password --json whoami
+ldap_shell domain.local/user:password --mcp
+```
+
 ### Connection options
 ```bash
 # Basic authentication with password
