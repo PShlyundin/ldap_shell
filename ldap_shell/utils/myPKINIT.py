@@ -361,7 +361,7 @@ class myPKINIT(PKINIT):
 
             seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-            now = datetime.datetime.utcnow()
+            now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
             authenticator['cusec'] = now.microsecond
             authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -404,7 +404,7 @@ class myPKINIT(PKINIT):
             seq_set(reqBody, 'sname', serverName.components_to_asn1)
             reqBody['realm'] = str(decodedTGT['crealm'])
 
-            now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+            now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=1)
 
             reqBody['till'] = KerberosTime.to_asn1(now)
             reqBody['nonce'] = random.getrandbits(31)

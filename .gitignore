@@ -1,5 +1,8 @@
 /.tgitconfig
-.idea/*
+.idea/
+.ruff_cache/
+.pytest_cache/
+.venv/
 .idea/**/workspace.xml
 .idea/**/tasks.xml
 .idea/dictionaries
