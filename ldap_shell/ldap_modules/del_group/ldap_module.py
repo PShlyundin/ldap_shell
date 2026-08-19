@@ -4,6 +4,7 @@ from ldapdomaindump import domainDumper
 from pydantic import BaseModel, Field
 from typing import Optional
 from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.utils.ldap_utils import LdapUtils
 
 class LdapShellModule(BaseLdapModule):
     """Module for deleting groups from Active Directory"""
@@ -34,7 +35,7 @@ class LdapShellModule(BaseLdapModule):
         # Search for group by name
         self.client.search(
             self.domain_dumper.root,
-            f'(&(objectClass=group)(sAMAccountName={self.args.group_name}))',
+            f'(&(objectClass=group){LdapUtils.sam_filter(self.args.group_name)})',
             SUBTREE,
             attributes=['distinguishedName']
         )
