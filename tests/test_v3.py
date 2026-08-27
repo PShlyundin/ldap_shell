@@ -19,7 +19,7 @@ def test_module_loader_includes_new_commands():
     for required in (
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
         'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
-        'add_sid_history',
+        'add_sid_history', 'get_kerberoast', 'set_delegation',
     ):
         assert required in names
 
@@ -27,6 +27,29 @@ def test_module_loader_includes_new_commands():
 def test_describe_mask_generic_all():
     names = AceUtils.describe_mask(0x000F01FF)
     assert 'GenericAll' in names
+
+
+def test_roast_hashcat_formats():
+    from ldap_shell.utils.roast_utils import format_asrep, format_tgs
+
+    cipher = bytes(range(32))
+    asrep = format_asrep('alice', 'lab.local', 23, cipher)
+    assert asrep.startswith('$krb5asrep$23$alice@LAB.LOCAL:')
+    tgs = format_tgs('sql', 'lab.local', 'MSSQLSvc/db.lab.local', 23, cipher)
+    assert tgs.startswith('$krb5tgs$23$*sql$LAB.LOCAL$MSSQLSvc/db.lab.local*')
+
+
+def test_kerberoast_and_delegation_args():
+    roast = ModuleLoader.load_module('get_kerberoast')
+    names = [arg.name for arg in roast.get_arguments()]
+    assert names == ['target', 'output']
+    assert roast.get_arguments()[0].required is False
+
+    deleg = ModuleLoader.load_module('set_delegation')
+    assert [arg.name for arg in deleg.get_arguments()] == ['target', 'action', 'spn']
+    source = (ROOT / 'ldap_shell/ldap_modules/get_kerberoast/ldap_module.py').read_text()
+    assert 'servicePrincipalName=*' in source
+    assert 'objectCategory=person' in source
 
 
 def test_arg_field_does_not_emit_pydantic_extra_kwarg_warning():
