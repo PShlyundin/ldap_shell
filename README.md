@@ -57,6 +57,8 @@ ldap_shell domain.local/user:password get_kerberoast
 ldap_shell domain.local/user:password get_asreproast
 ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.local
 ldap_shell domain.local/user:password set_keycred john add
+ldap_shell domain.local/user:password set_dns wpad add A 10.0.0.5
+ldap_shell domain.local/user:password set_dns www add CNAME server.domain.local
 ```
 
 `-non-interactive` reads commands from stdin (one per line).
@@ -79,7 +81,7 @@ Get Info
     get_asreproast [target] [file] - AS-REP roastable users + hashcat hashes
     get_children [target] - List child objects of a container
     get_delegation [target] - Unconstrained / constrained / RBCD
-    get_dns [name] - AD-integrated DNS nodes
+    get_dns [name] - AD-integrated DNS nodes (decoded A/CNAME)
     get_group_users group - Get all users in a group
     get_kerberoast [target] [file] - Kerberoastable users + hashcat TGS
     get_laps_gmsa [target] - LAPS (incl. 2.0) and gMSA secrets
@@ -105,6 +107,7 @@ Abuse ACL
     set_attr target attribute action [value] - Generic attribute modify
     set_dcsync target - Grant DCSync
     set_delegation target action [spn] - Constrained delegation SPNs
+    set_dns name action [A|CNAME] [data] [zone] - Add/delete an ADIDNS A or CNAME
     set_dontreqpreauth target flag - Targeted AS-REP roast flag
     set_genericall target [grantee] - Grant GenericAll
     set_owner target [grantee] - Set owner
