@@ -40,4 +40,5 @@ class LdapShellModule(BaseLdapModule):
             self.domain_dumper.config.basepath = self.args.output_dir
         
         self.domain_dumper.domainDump()
-        self.log.info(f'Domain info dumped into {self.args.output_dir}')
+        output = self.args.output_dir or self.domain_dumper.config.basepath or '.'
+        self.log.info('Domain info dumped into %s', output)

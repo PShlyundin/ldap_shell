@@ -6,7 +6,7 @@ from typing import Optional
 from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
 from Cryptodome.Hash import MD4
 import binascii
-from ldap_shell.utils.security_utils import MSDS_MANAGEDPASSWORD_BLOB
+from impacket.structure import Structure
 from impacket.dpapi_ng import EncryptedPasswordBlob, KeyIdentifier, compute_kek, create_sd, decrypt_plaintext, unwrap_cek
 from impacket.dcerpc.v5 import transport, epm, gkdi
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
@@ -14,6 +14,24 @@ from pyasn1.codec.der import decoder
 from pyasn1_modules import rfc5652
 import json
 import re
+
+
+class MSDS_MANAGEDPASSWORD_BLOB(Structure):
+    structure = (
+        ('Version', '<H'),
+        ('Reserved', '<H'),
+        ('Length', '<L'),
+        ('CurrentPassword', ':'),
+        ('PreviousPassword', ':'),
+        ('QueryInterval', '<L'),
+        ('UnchangedInterval', '<L'),
+    )
+
+    def fromString(self, data):
+        Structure.fromString(self, data)
+        self['CurrentPassword'] = self.rawData[self['CurrentPassword']:self['CurrentPassword'] + self['Length']]
+        self['PreviousPassword'] = self.rawData[self['PreviousPassword']:self['PreviousPassword'] + self['Length']]
+
 
 class LdapShellModule(BaseLdapModule):
     """Module for retrieving LAPS and GMSA passwords"""
@@ -140,72 +158,67 @@ class LdapShellModule(BaseLdapModule):
         return bool(self.laps_attributes)
 
     def __call__(self):
-        # Determine available LAPS attributes
-        if not self.__check_laps_attributes():
-            self.log.error("LAPS is not configured in domain")
-            return
+        from ldap_shell.utils.ldap_utils import LdapUtils
 
-        # Form search filter
-        search_filter = '(objectClass=computer)'
-        if self.args.target:
-            search_filter = f'(&(objectClass=computer)(sAMAccountName={self.args.target}))'
+        found = False
+        has_laps = self.__check_laps_attributes()
+        if not has_laps:
+            self.log.info('LAPS is not configured in domain, skipping LAPS lookup')
         else:
-            # Dynamically create filter based on available attributes
-            attr_filters = []
-            if 'ms-Mcs-AdmPwd' in self.laps_attributes:
-                attr_filters.append('(ms-Mcs-AdmPwd=*)')
-            if 'msLAPS-EncryptedPassword' in self.laps_attributes:
-                attr_filters.append('(msLAPS-EncryptedPassword=*)')
-            
-            if not attr_filters:
-                self.log.error("No available LAPS attributes for search")
-                return
-                
-            search_filter = f'(&(objectClass=computer)(|{"".join(attr_filters)}))'
+            if self.args.target:
+                search_filter = f'(&(objectClass=computer){LdapUtils.sam_filter(self.args.target)})'
+            else:
+                attr_filters = []
+                if 'ms-Mcs-AdmPwd' in self.laps_attributes:
+                    attr_filters.append('(ms-Mcs-AdmPwd=*)')
+                if 'msLAPS-EncryptedPassword' in self.laps_attributes:
+                    attr_filters.append('(msLAPS-EncryptedPassword=*)')
+                search_filter = f'(&(objectClass=computer)(|{"".join(attr_filters)}))'
 
-        # Execute search
-        self.client.search(
-            self.domain_dumper.root,
-            search_filter,
-            attributes=['sAMAccountName'] + self.laps_attributes
-        )
-
-        for entry in self.client.entries:
-            hostname = entry['sAMAccountName'].value
-            password = None
-            
-            # Process LAPS v1
-            if 'ms-Mcs-AdmPwd' in entry:
-                laps_v1 = entry['ms-Mcs-AdmPwd'].value
-                if laps_v1:
-                    self.log.info(f'[LAPS v1] {hostname}: {laps_v1}')
+            self.client.search(
+                self.domain_dumper.root,
+                search_filter,
+                attributes=['sAMAccountName'] + self.laps_attributes,
+                paged_size=1000
+            )
+            for entry in self.client.entries:
+                hostname = entry['sAMAccountName'].value
+                if 'ms-Mcs-AdmPwd' in entry and entry['ms-Mcs-AdmPwd'].value:
+                    self.log.info('[LAPS v1] %s: %s', hostname, entry['ms-Mcs-AdmPwd'].value)
+                    found = True
                     continue
-
-            # Process LAPS v2
-            if 'msLAPS-EncryptedPassword' in entry:
-                laps_v2 = entry['msLAPS-EncryptedPassword'].value
-                if laps_v2:
-                    decrypted = self.__decrypt_laps_v2(laps_v2)
+                if 'msLAPS-EncryptedPassword' in entry and entry['msLAPS-EncryptedPassword'].value:
+                    decrypted = self.__decrypt_laps_v2(entry['msLAPS-EncryptedPassword'].value)
                     if decrypted:
                         password = json.loads(decrypted[:-18].decode('utf-16le'))['p']
-                        self.log.info(f'[LAPS v2] {hostname}: {password}')
-        
-        # Process GMSA
+                        self.log.info('[LAPS v2] %s: %s', hostname, password)
+                        found = True
+
+        gmsa_filter = '(objectClass=msDS-GroupManagedServiceAccount)'
+        if self.args.target:
+            gmsa_filter = f'(&{gmsa_filter}{LdapUtils.sam_filter(self.args.target)})'
         self.client.search(
             self.domain_dumper.root,
-            '(objectClass=msDS-GroupManagedServiceAccount)',
-            attributes=['sAMAccountName', 'msDS-ManagedPassword', 'msDS-GroupMSAMembership']
+            gmsa_filter,
+            attributes=['sAMAccountName', 'msDS-ManagedPassword', 'msDS-GroupMSAMembership'],
+            paged_size=1000
         )
-        
         if not self.client.entries:
-            self.log.info('No GMSA accounts found')
+            if not found:
+                self.log.info('No LAPS or GMSA secrets found')
             return
-            
+
         for entry in self.client.entries:
-            if 'msDS-ManagedPassword' in entry:
+            if 'msDS-ManagedPassword' in entry and entry['msDS-ManagedPassword'].raw_values:
                 blob = MSDS_MANAGEDPASSWORD_BLOB(entry['msDS-ManagedPassword'].raw_values[0])
                 ntlm_hash = MD4.new()
                 ntlm_hash.update(blob['CurrentPassword'][:-2])
                 passwd = binascii.hexlify(ntlm_hash.digest()).decode()
-                self.log.info(f'[GMSA] {entry["sAMAccountName"].value}:::aad3b435b51404eeaad3b435b51404ee:{passwd}')
+                self.log.info(
+                    '[GMSA] %s:::aad3b435b51404eeaad3b435b51404ee:%s',
+                    entry['sAMAccountName'].value, passwd
+                )
+                found = True
+        if not found:
+            self.log.info('No LAPS or GMSA secrets found')
 

@@ -43,16 +43,9 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def __call__(self):
-        if not LdapUtils.check_dn(self.client, self.domain_dumper, self.args.target):
-            target_dn = LdapUtils.get_dn(self.client, self.domain_dumper, self.args.grantee)
-            if not target_dn:
-                self.log.error('Invalid DN: %s', self.args.grantee)
-                return
-        # Get target information
-        else:
-            target_dn = self.args.target
+        target_dn = LdapUtils.resolve_dn(self.client, self.domain_dumper, self.args.target)
         if not target_dn:
-            self.log.error(f'Target object not found: {self.args.target}')
+            self.log.error('Target object not found: %s', self.args.target)
             return
 
         # Get grantee account information

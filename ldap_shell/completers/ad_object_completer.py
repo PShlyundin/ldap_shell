@@ -7,7 +7,7 @@ from abc import abstractmethod
 from ldap3 import SUBTREE
 import threading
 from ldap_shell.utils import history
-from ldap_shell.completers.base import ADObjectCacheManager
+from ldap_shell.completers.base import ADObjectCacheManager, highlight_match
 
 class ADObjectCompleter(BaseArgumentCompleter):
     """Completer for AD objects (users, computers, groups, OUs)"""
@@ -51,17 +51,7 @@ class ADObjectCompleter(BaseArgumentCompleter):
                 )
 
     def _highlight_match(self, text: str, substr: str) -> str:
-        """Highlights the matching part of the text"""
-        if not substr:
-            return text
-            
-        index = text.lower().find(substr.lower())
-        if index >= 0:
-            before = text[:index]
-            match = text[index:index + len(substr)]
-            after = text[index + len(substr):]
-            return f"{before}<b><style fg='black'>{match}</style></b>{after}"
-        return text
+        return highlight_match(text, substr)
 
     def _get_ad_objects(self):
         objects = set()

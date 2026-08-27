@@ -1,8 +1,6 @@
-from enum import Enum, auto
-from typing import Dict, List, Optional, Annotated
-from pydantic import BaseModel, Field, BeforeValidator
-from ldap3 import Connection
-from ldapdomaindump import domainDumper
+from enum import Enum
+from typing import List, Annotated
+from pydantic import BaseModel, BeforeValidator
 
 def parse_attributes(value) -> List[str]:
     """Convert input to list of attributes.

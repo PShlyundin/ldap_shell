@@ -3,7 +3,6 @@ from ldap3 import Connection
 from ldapdomaindump import domainDumper
 from pydantic import BaseModel, Field
 from typing import Optional
-from ldap_shell.prompt import Prompt
 from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
 import ldap3
 from ldap_shell.utils.ldap_utils import LdapUtils
@@ -74,7 +73,7 @@ class LdapShellModule(BaseLdapModule):
         try:
             entry = self.client.search(
                 target_dn,
-                f'(sAMAccountName={self.args.target})',
+                LdapUtils.sam_filter(self.args.target),
                 attributes=['msDS-AllowedToActOnBehalfOfOtherIdentity']
             )
             if not entry or len(self.client.entries) != 1:

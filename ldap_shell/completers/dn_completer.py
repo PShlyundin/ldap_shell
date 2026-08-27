@@ -3,7 +3,7 @@ from prompt_toolkit.document import Document
 from .base import BaseArgumentCompleter
 from prompt_toolkit.formatted_text import HTML
 from ldap3 import SUBTREE
-from ldap_shell.completers.base import ADObjectCacheManager
+from ldap_shell.completers.base import ADObjectCacheManager, highlight_match
 
 class DNCompleter(BaseArgumentCompleter):
     """Completer for DN"""
@@ -44,17 +44,7 @@ class DNCompleter(BaseArgumentCompleter):
                 )
 
     def _highlight_match(self, text: str, substr: str) -> str:
-        """Highlights the matching part of the text"""
-        if not substr:
-            return text
-            
-        index = text.lower().find(substr.lower())
-        if index >= 0:
-            before = text[:index]
-            match = text[index:index + len(substr)]
-            after = text[index + len(substr):]
-            return f"{before}<b><style fg='black'>{match}</style></b>{after}"
-        return text
+        return highlight_match(text, substr)
 
     def _get_ad_objects(self):
         objects = []

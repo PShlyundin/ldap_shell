@@ -76,6 +76,18 @@ def init_logging(debug: bool, logs_dir_path: Optional[str] = None) -> None:
 credential_regex = re.compile(r'(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?')
 
 
+def parse_hashes(raw):
+    """Split LM:NT or NT-only hashes. Empty input returns (None, None)."""
+    if not raw:
+        return None, None
+    if ':' not in raw:
+        return 'aad3b435b51404eeaad3b435b51404ee', raw
+    lmhash, nthash = raw.split(':', 1)
+    if not lmhash:
+        lmhash = 'aad3b435b51404eeaad3b435b51404ee'
+    return lmhash, nthash
+
+
 def parse_credentials(credentials: str) -> Tuple[str, str, str]:
     """Helper function to parse credentials information. The expected format is:
 
@@ -89,6 +101,28 @@ def parse_credentials(credentials: str) -> Tuple[str, str, str]:
     """
     domain, username, password = credential_regex.match(credentials).groups('')
     return domain, username, password
+
+
+def current_sam(client) -> str:
+    """Best-effort sAMAccountName from a live ldap3 connection."""
+    user = getattr(client, 'user', None) or ''
+    if user.startswith('u:'):
+        user = user[2:]
+    if '\\' in user:
+        return user.split('\\', 1)[1]
+    if user.lower().startswith('cn='):
+        return user.split(',', 1)[0].split('=', 1)[1]
+    return user
+
+
+def current_domain(client) -> str:
+    """Best-effort NetBIOS/FQDN domain from a live ldap3 connection."""
+    user = getattr(client, 'user', None) or ''
+    if user.startswith('u:'):
+        user = user[2:]
+    if '\\' in user:
+        return user.split('\\', 1)[0]
+    return ''
 
 
 def b(s):
