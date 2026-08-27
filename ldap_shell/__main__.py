@@ -28,6 +28,7 @@ def parse_args(argv=None) -> argparse.Namespace:
             '  ldap_shell domain.local/user:pass search "(sAMAccountName=admin)"\n'
             '  ldap_shell domain.local/user:pass -c "get_acl admin" -c whoami\n'
             '  ldap_shell domain.local/user:pass --mcp\n'
+            '  ldap_shell domain.local/ -anon\n'
         ),
     )
     parser.add_argument(
@@ -80,8 +81,37 @@ def parse_args(argv=None) -> argparse.Namespace:
         '-use-ldaps', action='store_true',
         help='Use LDAPS (port 636) for the whole session'
     )
+    parser.add_argument(
+        '-gc', action='store_true',
+        help='Bind to the Global Catalog (3268, or 3269 with -use-ldaps)'
+    )
+    parser.add_argument(
+        '-pfx', action='store', metavar='file',
+        help='PKCS#12 client certificate for LDAPS SASL EXTERNAL bind'
+    )
+    parser.add_argument(
+        '-pfx-pass', action='store', metavar='password', dest='pfx_pass',
+        help='password for the PFX file'
+    )
+    parser.add_argument(
+        '-cert', action='store', metavar='file',
+        help='PEM client certificate (use with -key)'
+    )
+    parser.add_argument(
+        '-key', action='store', metavar='file',
+        help='PEM private key (use with -cert)'
+    )
+    parser.add_argument(
+        '-cert-auth', action='store', dest='cert_auth', default='auto',
+        choices=['auto', 'pkinit', 'external'],
+        help='certificate bind: pkinit (TGT), external (LDAPS SASL), or auto (PKINIT then EXTERNAL)'
+    )
     parser.add_argument('-no-pass', action='store_true',
                         help='don\'t ask for password (useful for -k)')
+    parser.add_argument(
+        '-anon', action='store_true',
+        help='anonymous bind (domain.local/ without a username also does this)'
+    )
     parser.add_argument(
         '-k', action='store_true',
         help='use Kerberos authentication. Grabs credentials from ccache file '
