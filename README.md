@@ -109,11 +109,12 @@ Abuse ACL
     dacl_modify target grantee action [mask] [inherit] - add/del/backup/restore DACL
     del_dcsync target - Remove DCSync rights
     del_user_from_group user group - Remove a user from a group
-    get_acl target [trustee|file] - Read DACL; filter trustee or save .dacl
+    get_acl target [all|principal] - Analyze an object's DACL: resolve trustees, decode rights, flag abusable ACEs and suggest the abuse command
     get_ntlm target - Shadow Credentials -> NT hash
     set_keycred target action [device_id] - Persist/list/remove KeyCredentials
-    get_writable [trustee] - Writable objects + next-command hint
-    set_attr target attribute action [value] - Generic attribute modify
+    get_writable [target] - List what the current account can write (effective rights), with attack hints
+    set_attr target attribute action [value] - Generic attribute modify (string values)
+    set_attribute target attribute [value] [action] - Write, append or delete any attribute; value type (string/int/bool/binary) is auto-detected from the AD schema
     set_dcsync target - Grant DCSync
     set_delegation target action [spn] - Constrained delegation SPNs
     set_dns name action [A|CNAME] [data] [zone] - Add/delete an ADIDNS A or CNAME

@@ -1,11 +1,13 @@
+import base64
 import logging
 import re
-import base64
-from ldap3 import Connection, MODIFY_REPLACE, MODIFY_ADD, MODIFY_DELETE
-from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+
+from ldap3 import MODIFY_ADD, MODIFY_DELETE, MODIFY_REPLACE, Connection
+from ldapdomaindump import domainDumper
+from pydantic import BaseModel
+
+from ldap_shell.ldap_modules.base_module import ArgumentType, BaseLdapModule, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 
@@ -115,22 +117,22 @@ class LdapShellModule(BaseLdapModule):
     }
 
     class ModuleArgs(BaseModel):
-        target: str = Field(
+        target: str = arg_field(
             description="Target object (sAMAccountName or DN)",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER,
                       ArgumentType.GROUP, ArgumentType.DN]
         )
-        attribute: str = Field(
+        attribute: str = arg_field(
             description="LDAP attribute name to modify (e.g. scriptPath, profilePath)",
             arg_type=ArgumentType.ATTRIBUTES
         )
-        value: Optional[str] = Field(
+        value: Optional[str] = arg_field(
             None,
             description="Value(s). Comma-separated for multi-valued attrs. Omit to clear the attribute. "
                         "Binary auto-detected; force with hex:/b64:/str:/@file prefixes.",
             arg_type=ArgumentType.STRING
         )
-        action: Optional[str] = Field(
+        action: Optional[str] = arg_field(
             "replace",
             description="replace (default) | add | del",
             arg_type=ArgumentType.ADD_DEL
