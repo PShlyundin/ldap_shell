@@ -32,6 +32,11 @@ class LdapShellModule(BaseLdapModule):
             description="Account being granted GenericAll rights",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP]
         )
+        inherit: str = arg_field(
+            None,
+            description="If inherit/true, ACE applies to descendants",
+            arg_type=ArgumentType.BOOLEAN,
+        )
 
     def __init__(self, args_dict: dict, 
                  domain_dumper: domainDumper, 
@@ -74,7 +79,8 @@ class LdapShellModule(BaseLdapModule):
             return
 
         # Add new ACE with GenericAll rights
-        sd['Dacl'].aces.append(AceUtils.create_allow_ace(grantee_sid))  # GenericAll
+        inherit = str(self.args.inherit or '').lower() in ('inherit', 'true', '1', 'yes')
+        sd['Dacl'].aces.append(AceUtils.create_allow_ace(grantee_sid, inherit=inherit))
         
         # Apply changes
         try:

@@ -105,10 +105,10 @@ Abuse ACL
     add_user_to_group user group - Add a user to a group
     change_password user [password] - Change password (needs LDAPS/StartTLS)
     clear_rbcd target [grantee] - Clear RBCD
-    dacl_modify target grantee action mask - Modify DACL entries
+    dacl_modify target grantee action [mask] [inherit] - add/del/backup/restore DACL
     del_dcsync target - Remove DCSync rights
     del_user_from_group user group - Remove a user from a group
-    get_acl target - Read and pretty-print a DACL
+    get_acl target [trustee|file] - Read DACL; filter trustee or save .dacl
     get_ntlm target - Shadow Credentials -> NT hash
     set_keycred target action [device_id] - Persist/list/remove KeyCredentials
     get_writable [trustee] - Writable objects + next-command hint

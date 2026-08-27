@@ -1,9 +1,12 @@
 import logging
+from typing import Optional
+
 from ldap3 import Connection
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldapdomaindump import domainDumper
 from pydantic import BaseModel
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
+
+from ldap_shell.ldap_modules.base_module import ArgumentType, BaseLdapModule, arg_field
 from ldap_shell.utils.ace_utils import AceUtils
 from ldap_shell.utils.ldap_utils import LdapUtils
 from ldap_shell.utils.ldaptypes import SR_SECURITY_DESCRIPTOR
@@ -15,6 +18,9 @@ class LdapShellModule(BaseLdapModule):
     help_text = "Show DACL entries for a user, computer, group or DN"
     examples_text = """
     `get_acl admin`
+    `get_acl admin john`
+    `get_acl admin admin.dacl`
+    Outbound (what a trustee can write everywhere): `get_writable john`
     ```
     [INFO] owner: S-1-5-21-...-512 (Domain Admins)
     [INFO] ALLOW john GenericAll
@@ -27,6 +33,11 @@ class LdapShellModule(BaseLdapModule):
         target: str = arg_field(
             description="Target object (sAMAccountName or DN)",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP, ArgumentType.DN]
+        )
+        extra: Optional[str] = arg_field(
+            None,
+            description="Optional trustee filter, or .dacl/.bin path to save the raw SD",
+            arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP, ArgumentType.STRING],
         )
 
     def __init__(self, args_dict: dict, domain_dumper: domainDumper, client: Connection, log=None):
@@ -56,6 +67,20 @@ class LdapShellModule(BaseLdapModule):
             self.log.error('Empty security descriptor')
             return
 
+        extra = self.args.extra or ''
+        if extra.lower().endswith(('.dacl', '.bin', '.sd')):
+            with open(extra, 'wb') as handle:
+                handle.write(raw[0])
+            self.log.info(f'Saved DACL of {target_dn} to {extra} ({len(raw[0])} bytes)')
+            return
+
+        filter_sid = None
+        if extra:
+            filter_sid = LdapUtils.get_sid(self.client, self.domain_dumper, extra)
+            if not filter_sid:
+                self.log.error(f'Trustee not found: {extra}')
+                return
+
         sd = SR_SECURITY_DESCRIPTOR(data=raw[0])
         owner = sd['OwnerSid'].formatCanonical() if sd['OwnerSid'] else None
         owner_name = LdapUtils.sid_to_user(self.client, self.domain_dumper, owner) if owner else None
@@ -71,6 +96,8 @@ class LdapShellModule(BaseLdapModule):
             try:
                 sid = ace['Ace']['Sid'].formatCanonical()
             except Exception:
+                continue
+            if filter_sid and sid != filter_sid:
                 continue
             trustee = LdapUtils.sid_to_user(self.client, self.domain_dumper, sid) or sid
             ace_type = ace.get('TypeName', 'ACE')
