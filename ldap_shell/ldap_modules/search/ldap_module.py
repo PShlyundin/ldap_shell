@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection    
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, List
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ModuleArgument, ArgumentType, AttributesList
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ModuleArgument, ArgumentType, AttributesList, arg_field
 from datetime import datetime, timedelta
 import re
 
@@ -39,12 +39,12 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Get Info"
 
     class ModuleArgs(BaseModel):
-        ldap_filter: str = Field(
+        ldap_filter: str = arg_field(
             ..., # This argument is required
             description="LDAP filter",
             arg_type=ArgumentType.STRING
         )
-        attributes: Optional[AttributesList] = Field(
+        attributes: Optional[AttributesList] = arg_field(
             None, # This argument is not required
             description="Attributes to retrieve (single or comma-separated)",
             arg_type=ArgumentType.ATTRIBUTES

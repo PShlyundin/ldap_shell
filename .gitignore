@@ -3,6 +3,8 @@
 .ruff_cache/
 .pytest_cache/
 .venv/
+.coverage
+htmlcov/
 .idea/**/workspace.xml
 .idea/**/tasks.xml
 .idea/dictionaries

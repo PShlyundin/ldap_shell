@@ -3,9 +3,9 @@ from typing import Optional
 
 from ldap3 import Connection
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from ldap_shell.ldap_modules.base_module import ArgumentType, BaseLdapModule
+from ldap_shell.ldap_modules.base_module import ArgumentType, BaseLdapModule, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 DONT_REQUIRE_PREAUTH = 0x400000
@@ -22,7 +22,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Get Info"
 
     class ModuleArgs(BaseModel):
-        target: Optional[str] = Field(
+        target: Optional[str] = arg_field(
             None,
             description="Optional sAMAccountName to check",
             arg_type=ArgumentType.USER

@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection    
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, List
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ModuleArgument, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ModuleArgument, ArgumentType, arg_field
 
 class LdapShellModule(BaseLdapModule):
     """Module for dumping information from AD. This command will perform the same action as running the ldapdomaindump tool"""
@@ -18,7 +18,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Get Info"
 
     class ModuleArgs(BaseModel):
-        output_dir: Optional[str] = Field(
+        output_dir: Optional[str] = arg_field(
             None, # This argument is not required
             description="Directory to save dump files",
             arg_type=ArgumentType.DIRECTORY

@@ -2,8 +2,8 @@ import logging
 from ldap3 import Connection
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from pydantic import BaseModel
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ace_utils import AceUtils
 from ldap_shell.utils.ldap_utils import LdapUtils
 from ldap_shell.utils.ldaptypes import SR_SECURITY_DESCRIPTOR
@@ -24,7 +24,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
-        target: str = Field(
+        target: str = arg_field(
             description="Target object (sAMAccountName or DN)",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP, ArgumentType.DN]
         )

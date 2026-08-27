@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from ldap_shell.utils.ace_utils import AceUtils
@@ -26,3 +27,29 @@ def test_module_loader_includes_new_commands():
 def test_describe_mask_generic_all():
     names = AceUtils.describe_mask(0x000F01FF)
     assert 'GenericAll' in names
+
+
+def test_arg_field_does_not_emit_pydantic_extra_kwarg_warning():
+    import warnings
+
+    from pydantic import BaseModel
+    from pydantic.warnings import PydanticDeprecatedSince20
+
+    from ldap_shell.ldap_modules.base_module import ArgumentType, arg_field
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', PydanticDeprecatedSince20)
+
+        class Sample(BaseModel):
+            user: str = arg_field(description='u', arg_type=ArgumentType.USER)
+
+    assert Sample.model_fields['user'].json_schema_extra['arg_type'] is ArgumentType.USER
+
+
+def test_modules_call_arg_field_not_field_arg_type():
+    for path in (ROOT / 'ldap_shell/ldap_modules').glob('*/ldap_module.py'):
+        text = path.read_text()
+        if 'arg_type=' not in text:
+            continue
+        assert 'arg_field(' in text
+        assert re.search(r'\bField\s*\(', text) is None

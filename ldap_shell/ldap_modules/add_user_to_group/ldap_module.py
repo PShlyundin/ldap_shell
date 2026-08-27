@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection    
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 import ldap3
 from ldap_shell.utils.ldap_utils import LdapUtils
 
@@ -21,11 +21,11 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
-        user: str = Field(
+        user: str = arg_field(
             description="Target AD user",
             arg_type=[ArgumentType.USER, ArgumentType.GROUP]
         )
-        group: str = Field(
+        group: str = arg_field(
             description="Target AD group",
             arg_type=ArgumentType.GROUP
         )

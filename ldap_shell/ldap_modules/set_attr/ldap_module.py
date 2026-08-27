@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection, MODIFY_ADD, MODIFY_REPLACE, MODIFY_DELETE
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 ACTIONS = {
@@ -26,19 +26,19 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
-        target: str = Field(
+        target: str = arg_field(
             description="Target sAMAccountName or DN",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP, ArgumentType.DN]
         )
-        attribute: str = Field(
+        attribute: str = arg_field(
             description="Attribute name",
             arg_type=ArgumentType.STRING
         )
-        action: str = Field(
+        action: str = arg_field(
             description="add / replace / del",
             arg_type=ArgumentType.ACTION
         )
-        value: Optional[str] = Field(
+        value: Optional[str] = arg_field(
             None,
             description="Attribute value (optional for delete-all)",
             arg_type=ArgumentType.STRING

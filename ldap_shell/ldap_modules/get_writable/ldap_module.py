@@ -2,9 +2,9 @@ import logging
 from ldap3 import Connection, SUBTREE
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils import current_sam
 from ldap_shell.utils.ace_utils import AceUtils
 from ldap_shell.utils.ldap_utils import LdapUtils
@@ -24,7 +24,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Abuse ACL"
 
     class ModuleArgs(BaseModel):
-        trustee: Optional[str] = Field(
+        trustee: Optional[str] = arg_field(
             None,
             description="Trustee to check (default: current user)",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP]

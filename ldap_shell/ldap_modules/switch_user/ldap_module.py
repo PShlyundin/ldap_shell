@@ -2,9 +2,9 @@ import logging
 import re
 from ldap3 import Connection
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.security_utils import SecurityUtils
 from ldap_shell.utils import current_domain, current_sam
 
@@ -30,11 +30,11 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Misc"
 
     class ModuleArgs(BaseModel):
-        username: str = Field(
+        username: str = arg_field(
             description="Username to switch to",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER]
         )
-        password: Optional[str] = Field(
+        password: Optional[str] = arg_field(
             None,
             description="User's password or NTLM hash (optional)",
             arg_type=ArgumentType.STRING

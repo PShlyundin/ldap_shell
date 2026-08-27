@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection    
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap3.utils.conv import escape_filter_chars
 
 class LdapShellModule(BaseLdapModule):
@@ -34,7 +34,7 @@ class LdapShellModule(BaseLdapModule):
     """
     module_type = "Get Info"
     class ModuleArgs(BaseModel):
-        user: Optional[str] = Field(
+        user: Optional[str] = arg_field(
             ...,  # This argument is required
             description="Target AD user",
             arg_type=[ArgumentType.USER, ArgumentType.GROUP, ArgumentType.COMPUTER]  # Changed to list of types

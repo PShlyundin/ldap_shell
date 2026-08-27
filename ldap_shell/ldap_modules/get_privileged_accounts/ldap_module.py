@@ -3,9 +3,9 @@ from typing import Optional
 
 from ldap3 import Connection
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from ldap_shell.ldap_modules.base_module import ArgumentType, BaseLdapModule
+from ldap_shell.ldap_modules.base_module import ArgumentType, BaseLdapModule, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 PRIVILEGED_GROUPS = (
@@ -34,7 +34,7 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Get Info"
 
     class ModuleArgs(BaseModel):
-        group: Optional[str] = Field(
+        group: Optional[str] = arg_field(
             None,
             description="One privileged group, or all if omitted",
             arg_type=ArgumentType.GROUP

@@ -1,9 +1,9 @@
 import logging
 from ldap3 import Connection, MODIFY_DELETE, MODIFY_REPLACE
 from ldapdomaindump import domainDumper
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType
+from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from ldap_shell.utils.ldap_utils import LdapUtils
 
 SHOW_DELETED = ('1.2.840.113556.1.4.417', True, None)
@@ -20,11 +20,11 @@ class LdapShellModule(BaseLdapModule):
     module_type = "Misc"
 
     class ModuleArgs(BaseModel):
-        target: str = Field(
+        target: str = arg_field(
             description="sAMAccountName or CN of the deleted object",
             arg_type=[ArgumentType.USER, ArgumentType.COMPUTER, ArgumentType.GROUP, ArgumentType.STRING]
         )
-        target_dn: Optional[str] = Field(
+        target_dn: Optional[str] = arg_field(
             None,
             description="Optional new parent DN. Defaults to lastKnownParent",
             arg_type=ArgumentType.DN

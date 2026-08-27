@@ -34,7 +34,12 @@ setup(
     ],
     extras_require={
         'mcp': ['mcp>=1.2'],
-        'dev': ['pytest>=8.0', 'mcp>=1.2'],
+        'dev': [
+            'pytest>=8.0',
+            'pytest-cov>=5.0',
+            'ruff>=0.8',
+            'mcp>=1.2',
+        ],
     },
     packages=find_packages(),
     include_package_data=True,
