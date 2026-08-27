@@ -1,6 +1,29 @@
 import ldap_shell.utils.ldaptypes as ldaptypes
 from ldap_shell.utils.ldap_utils import LdapUtils
 
+RIGHT_NAMES = (
+    ('GenericAll', 0x000F01FF),
+    ('GenericWrite', 0x00020028),
+    ('WriteDacl', 0x00040000),
+    ('WriteOwner', 0x00080000),
+    ('WriteProperty', 0x00000020),
+    ('ExtendedRight', 0x00000100),
+    ('Delete', 0x00010000),
+    ('ReadControl', 0x00020000),
+)
+
+OBJECT_GUIDS = {
+    '00299570-246d-11d0-a768-00aa006e0529': 'User-Force-Change-Password',
+    '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2': 'DS-Replication-Get-Changes',
+    '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2': 'DS-Replication-Get-Changes-All',
+    '89e95b76-444d-4c62-991a-0facbeda640c': 'DS-Replication-Get-Changes-In-Filtered-Set',
+    '3f78c3e5-f79a-46bd-a0b8-9d18116ddc79': 'msDS-AllowedToActOnBehalfOfOtherIdentity',
+    '5b47d60f-6090-40b2-9f37-2a4de88f3063': 'msDS-KeyCredentialLink',
+    'bf9679c0-0de6-11d0-a285-00aa003049e2': 'Member',
+    'f3a64788-5306-11d1-a9c5-0000f80367c1': 'Service-Principal-Name',
+}
+
+
 class AceUtils:
     @staticmethod
     def create_allow_ace(sid):
@@ -66,3 +89,26 @@ class AceUtils:
 
         nace['Ace'] = acedata
         return nace
+
+    @staticmethod
+    def describe_mask(mask_value: int):
+        names = [name for name, bit in RIGHT_NAMES if mask_value & bit == bit or mask_value == bit]
+        return names or [f'0x{int(mask_value):X}']
+
+    @staticmethod
+    def object_type_name(raw) -> str:
+        if not raw:
+            return ''
+        try:
+            guid = LdapUtils.bin_to_string(raw).lower()
+        except Exception:
+            return ''
+        return OBJECT_GUIDS.get(guid, guid)
+
+    @staticmethod
+    def ace_rights(ace) -> list:
+        try:
+            mask = ace['Ace']['Mask']['Mask']
+        except Exception:
+            return []
+        return AceUtils.describe_mask(int(mask))

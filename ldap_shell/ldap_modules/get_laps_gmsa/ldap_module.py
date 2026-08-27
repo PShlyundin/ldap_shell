@@ -184,14 +184,14 @@ class LdapShellModule(BaseLdapModule):
             for entry in self.client.entries:
                 hostname = entry['sAMAccountName'].value
                 if 'ms-Mcs-AdmPwd' in entry and entry['ms-Mcs-AdmPwd'].value:
-                    self.log.info('[LAPS v1] %s: %s', hostname, entry['ms-Mcs-AdmPwd'].value)
+                    self.log.info(f'[LAPS v1] {hostname}: {entry["ms-Mcs-AdmPwd"].value}')
                     found = True
                     continue
                 if 'msLAPS-EncryptedPassword' in entry and entry['msLAPS-EncryptedPassword'].value:
                     decrypted = self.__decrypt_laps_v2(entry['msLAPS-EncryptedPassword'].value)
                     if decrypted:
                         password = json.loads(decrypted[:-18].decode('utf-16le'))['p']
-                        self.log.info('[LAPS v2] %s: %s', hostname, password)
+                        self.log.info(f'[LAPS v2] {hostname}: {password}')
                         found = True
 
         gmsa_filter = '(objectClass=msDS-GroupManagedServiceAccount)'

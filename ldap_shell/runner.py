@@ -85,7 +85,7 @@ class CommandRunner:
         try:
             values = shlex.split(arg_string)
         except ValueError as exc:
-            log.warning('Argument parse warning: %s', exc)
+            log.warning(f'Argument parse warning: {exc}')
             values = arg_string.strip().split()
 
         args_dict = {}
