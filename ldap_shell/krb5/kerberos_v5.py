@@ -248,7 +248,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash,
 
     reqBody['realm'] = domain
 
-    now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=1)
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['rtime'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] = rand.getrandbits(31)
@@ -361,7 +361,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash,
         # Let's build the timestamp
         timeStamp = PA_ENC_TS_ENC()
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         timeStamp['patimestamp'] = KerberosTime.to_asn1(now)
         timeStamp['pausec'] = now.microsecond
 
@@ -407,7 +407,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash,
 
         reqBody['realm'] = domain
 
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=1)
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['rtime'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = rand.getrandbits(31)
@@ -486,7 +486,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     authenticator['cusec'] = now.microsecond
     authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -525,7 +525,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
     reqBody['realm'] = domain
 
-    now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=1)
 
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] = rand.getrandbits(31)

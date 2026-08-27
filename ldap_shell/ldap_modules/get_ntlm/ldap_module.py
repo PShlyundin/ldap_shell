@@ -16,6 +16,29 @@ from minikerberos.common.target import KerberosTarget
 from minikerberos.network.clientsocket import KerberosClientSocket
 from ldap_shell.utils.myPKINIT import myPKINIT
 
+
+def _export_pfx(certificate, passphrase: bytes) -> bytes:
+    """Build a PKCS#12 blob without the deprecated OpenSSL.crypto.PKCS12 API."""
+    from cryptography.hazmat.primitives.serialization import (
+        BestAvailableEncryption,
+        load_pem_private_key,
+        pkcs12,
+    )
+    from cryptography.x509 import load_pem_x509_certificate
+
+    key_pem = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, certificate.key)
+    cert_pem = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, certificate.certificate)
+    private_key = load_pem_private_key(key_pem, password=None)
+    cert = load_pem_x509_certificate(cert_pem)
+    return pkcs12.serialize_key_and_certificates(
+        name=b'ldap_shell',
+        key=private_key,
+        cert=cert,
+        cas=None,
+        encryption_algorithm=BestAvailableEncryption(passphrase),
+    )
+
+
 class LdapShellModule(BaseLdapModule):
     """Module for getting NTLM hash using Shadow Credentials attack"""
     
@@ -113,11 +136,8 @@ class LdapShellModule(BaseLdapModule):
 
             try:
                 # PKINIT authentication
-                pfx_pass = ''.join(chr(random.randint(1,255)) for _ in range(20)).encode()
-                pk = OpenSSL.crypto.PKCS12()
-                pk.set_privatekey(certificate.key)
-                pk.set_certificate(certificate.certificate)
-                pfxdata = pk.export(passphrase=pfx_pass)
+                pfx_pass = ''.join(chr(random.randint(1, 255)) for _ in range(20)).encode()
+                pfxdata = _export_pfx(certificate, pfx_pass)
 
                 dhparams = {
                     'p': int('00ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024e088a67cc74020bbea63b139b22514a08798e3404ddef9519b3cd3a431b302b0a6df25f14374fe1356d6d51c245e485b576625e7ec6f44c42e9a637ed6b0bff5cb6f406b7edee386bfb5a899fa5ae9f24117c4b1fe649286651ece65381ffffffffffffffff', 16),
