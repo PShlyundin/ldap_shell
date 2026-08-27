@@ -2,7 +2,7 @@
 
 Interactive and **inline** LDAP client for Active Directory enumeration and ACL abuse. Fork of Impacket's ldap_shell.
 
-Version **3.0.0**. Requires **Python 3.10+**.
+Version **3.1.0**. Requires **Python 3.10+**.
 
 If a DC rejects plaintext LDAP because signing or channel binding is required, the client tries **StartTLS**, then **LDAPS**. If the installed `ldap3` supports `session_security` / `channel_binding`, those are turned on automatically. Stock `ldap3` 2.9.1 cannot send EPA tokens. `pip install ".[epa]"` swaps in `ldap3-bleeding-edge`, which can. Use `-use-ldaps` when you already know the DC is locked down.
 
@@ -55,13 +55,13 @@ ldap_shell domain.local/user:password -c "get_writable" -c whoami
 ldap_shell domain.local/user:password --json whoami
 # --json / MCP `run` set ok=false when the command logs [ERROR]
 ldap_shell domain.local/user:password get_kerberoast
-ldap_shell domain.local/user:password get_asreproast
 ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.local
 ldap_shell domain.local/user:password set_keycred john add
 ldap_shell domain.local/user:password set_dns wpad add A 10.0.0.5
 ldap_shell domain.local/user:password set_dns www add CNAME server.domain.local
 ldap_shell domain.local/user:password set_badsuccessor add Administrator
 ldap_shell domain.local/user:password get_writable
+ldap_shell domain.local/user:password get_asreproast
 ldap_shell domain.local/user:password get_pre2k
 ldap_shell domain.local/user:password get_desc pass
 ```
