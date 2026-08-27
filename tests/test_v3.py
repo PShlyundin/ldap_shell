@@ -19,7 +19,7 @@ def test_module_loader_includes_new_commands():
     for required in (
         'whoami', 'get_acl', 'get_writable', 'get_delegation', 'get_trusts',
         'restore', 'set_attr', 'get_asreproast', 'get_privileged_accounts',
-        'add_sid_history', 'get_kerberoast', 'set_delegation',
+        'add_sid_history', 'get_kerberoast', 'set_delegation', 'set_keycred',
     ):
         assert required in names
 
