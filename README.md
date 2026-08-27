@@ -95,6 +95,7 @@ Get Info
     get_maq [user] - Machine Account Quota
     get_policy - Domain / FGPP password policy and SASL mechs
     get_privileged_accounts [group] - Built-in privileged group members
+    get_sites [site] - AD sites with their domain controllers and IP subnets
     get_trusts - Domain trusts
     get_user_groups user - Recursive group membership
     search ldap_filter [attributes] - Search AD objects
