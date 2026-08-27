@@ -64,7 +64,7 @@ def _require_runner() -> CommandRunner:
     return STATE.runner
 
 
-def serve(client=None, domain_dumper=None, as_json=False):
+def serve(client=None, domain_dumper=None):
     """Start the MCP stdio server. Optional pre-bound connection."""
     try:
         from mcp.server.fastmcp import FastMCP
@@ -134,8 +134,8 @@ def serve(client=None, domain_dumper=None, as_json=False):
 
     @mcp.tool()
     def list_commands() -> str:
-        """List ldap_shell modules, their arguments and help text."""
-        runner = _require_runner()
+        """List ldap_shell modules, their arguments and help text. Does not need a bind."""
+        runner = STATE.runner or CommandRunner(None, None)
         return json.dumps(runner.list_commands(), indent=2)
 
     @mcp.tool()

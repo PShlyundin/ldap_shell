@@ -53,6 +53,7 @@ ldap_shell domain.local/user:password search "(sAMAccountName=admin)" sAMAccount
 ldap_shell domain.local/user:password get_acl admin
 ldap_shell domain.local/user:password -c "get_writable" -c whoami
 ldap_shell domain.local/user:password --json whoami
+# --json / MCP `run` set ok=false when the command logs [ERROR]
 ldap_shell domain.local/user:password get_kerberoast
 ldap_shell domain.local/user:password get_asreproast
 ldap_shell domain.local/user:password set_delegation WEB01$ add cifs/dc.domain.local
@@ -75,7 +76,7 @@ ldap_shell domain.local/user:password --mcp
 LDAP_SHELL_TARGET='domain.local/user:password' ldap_shell-mcp
 ```
 
-Tools: `connect`, `status`, `list_commands`, `run`.
+Tools: `connect`, `status`, `list_commands`, `run`. Every shell module is a `run` command (`get_kerberoast`, `set_keycred john add`, …). `connect` accepts the same `-pfx` / `-cert-auth` options.
 
 ## Functionality
 

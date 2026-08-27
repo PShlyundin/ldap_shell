@@ -52,7 +52,7 @@ class LdapShellModule(BaseLdapModule):
                 controls=security_descriptor_control(sdflags=0x04))
         maq = self.client.entries[0].entry_attributes_as_dict['ms-DS-MachineAccountQuota'][0]
         if maq < 1:
-            self.log.error(f"Global domain policy ms-DS-MachineAccountQuota={maq}")
+            self.log.info(f"Global domain policy ms-DS-MachineAccountQuota={maq}")
             return
         if self.args.user:
             user_sid = LdapUtils.get_sid(self.client, self.domain_dumper, self.args.user)
