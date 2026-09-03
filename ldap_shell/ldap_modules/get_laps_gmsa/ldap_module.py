@@ -6,7 +6,6 @@ from typing import Optional
 from ldap_shell.ldap_modules.base_module import BaseLdapModule, ArgumentType, arg_field
 from Cryptodome.Hash import MD4
 import binascii
-from impacket.structure import Structure
 from impacket.dpapi_ng import EncryptedPasswordBlob, KeyIdentifier, compute_kek, create_sd, decrypt_plaintext, unwrap_cek
 from impacket.dcerpc.v5 import transport, epm, gkdi
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
@@ -15,22 +14,7 @@ from pyasn1_modules import rfc5652
 import json
 import re
 
-
-class MSDS_MANAGEDPASSWORD_BLOB(Structure):
-    structure = (
-        ('Version', '<H'),
-        ('Reserved', '<H'),
-        ('Length', '<L'),
-        ('CurrentPassword', ':'),
-        ('PreviousPassword', ':'),
-        ('QueryInterval', '<L'),
-        ('UnchangedInterval', '<L'),
-    )
-
-    def fromString(self, data):
-        Structure.fromString(self, data)
-        self['CurrentPassword'] = self.rawData[self['CurrentPassword']:self['CurrentPassword'] + self['Length']]
-        self['PreviousPassword'] = self.rawData[self['PreviousPassword']:self['PreviousPassword'] + self['Length']]
+from ldap_shell.utils.structure import MSDS_MANAGEDPASSWORD_BLOB
 
 
 class LdapShellModule(BaseLdapModule):
@@ -209,16 +193,28 @@ class LdapShellModule(BaseLdapModule):
             return
 
         for entry in self.client.entries:
-            if 'msDS-ManagedPassword' in entry and entry['msDS-ManagedPassword'].raw_values:
-                blob = MSDS_MANAGEDPASSWORD_BLOB(entry['msDS-ManagedPassword'].raw_values[0])
+            raw_values = entry['msDS-ManagedPassword'].raw_values if 'msDS-ManagedPassword' in entry else []
+            if not raw_values or not raw_values[0]:
+                continue
+            try:
+                blob = MSDS_MANAGEDPASSWORD_BLOB(raw_values[0])
+                current = blob['CurrentPassword'] or b''
+                if current.endswith(b'\x00\x00'):
+                    current = current[:-2]
                 ntlm_hash = MD4.new()
-                ntlm_hash.update(blob['CurrentPassword'][:-2])
+                ntlm_hash.update(current)
                 passwd = binascii.hexlify(ntlm_hash.digest()).decode()
-                self.log.info(
-                    '[GMSA] %s:::aad3b435b51404eeaad3b435b51404ee:%s',
-                    entry['sAMAccountName'].value, passwd
+            except Exception as exc:
+                self.log.error(
+                    'Failed to parse msDS-ManagedPassword for %s: %s',
+                    entry['sAMAccountName'].value, exc
                 )
-                found = True
+                continue
+            self.log.info(
+                '[GMSA] %s:::aad3b435b51404eeaad3b435b51404ee:%s',
+                entry['sAMAccountName'].value, passwd
+            )
+            found = True
         if not found:
             self.log.info('No LAPS or GMSA secrets found')
 
