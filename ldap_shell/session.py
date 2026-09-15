@@ -43,6 +43,106 @@ def adopt_ldap_connection(dst, src) -> None:
     except Exception:
         pass
     dst.__dict__.update(src.__dict__)
+    # ldap3 BaseStrategy keeps a back-reference to its Connection instance
+    strategy = getattr(dst, 'strategy', None)
+    if strategy is not None and hasattr(strategy, 'connection'):
+        strategy.connection = dst
+
+
+def _looks_like_ntlm_hash(value) -> bool:
+    """True when ldap3 password field holds LM:NT / :NT / NT hash material."""
+    if not value or not isinstance(value, str):
+        return False
+    import re
+    return bool(re.fullmatch(r'([0-9a-fA-F]{32})?:[0-9a-fA-F]{32}', value) or
+                re.fullmatch(r'[0-9a-fA-F]{32}', value))
+
+
+def _reconnect_ldaps_from_client(client) -> ldap3.Connection:
+    """Open a fresh LDAPS bind using credentials from an existing ldap3 connection."""
+    from ldap_shell.utils import current_domain, current_sam
+
+    host = getattr(client.server, 'host', None)
+    if not host:
+        raise LdapConnectionError('Cannot fall back to LDAPS: connection has no server host')
+
+    port = getattr(client.server, 'port', 389) or 389
+    gc = port in (3268, 3269)
+    domain = current_domain(client)
+    username = current_sam(client)
+    if not domain or not username:
+        raise LdapConnectionError(
+            'Cannot fall back to LDAPS: missing domain/username on the current bind'
+        )
+
+    password = getattr(client, 'password', None)
+    hashes = None
+    lmhash = nthash = None
+    do_kerberos = False
+
+    auth = getattr(client, 'authentication', None)
+    sasl = getattr(client, 'sasl_mechanism', None)
+    if auth == ldap3.SASL or sasl:
+        do_kerberos = True
+        password = None
+    elif _looks_like_ntlm_hash(password):
+        hashes = password if ':' in password else f':{password}'
+        lmhash, nthash = parse_hashes(hashes)
+        password = None
+
+    is_ip = bool(host and all(part.isdigit() for part in str(host).split('.')))
+    kdc_host = None if is_ip else host
+    if do_kerberos and is_ip:
+        # Kerberos needs a DNS name; use server info name when available
+        info_name = getattr(getattr(client.server, 'info', None), 'other', {}) or {}
+        dns = info_name.get('dnsHostName') or info_name.get('ldapServiceName')
+        if isinstance(dns, (list, tuple)) and dns:
+            dns = dns[0]
+        if isinstance(dns, str) and dns:
+            kdc_host = dns.split('/')[-1].split(':')[0]
+        if not kdc_host:
+            raise LdapConnectionError(
+                'Cannot fall back to LDAPS over Kerberos with an IP target; pass -dc-host'
+            )
+
+    return perform_ldap_connection(
+        host, domain, username, password or '', do_kerberos, True, hashes,
+        lmhash, nthash, None, kdc_host, gc=gc,
+    )
+
+
+def ensure_tls(client, domain_dumper=None, log=None) -> bool:
+    """Ensure confidentiality: keep StartTLS/LDAPS, or auto-fallback to LDAPS.
+
+    Many DCs reject StartTLS mid-session (operationsError). Modules that need an
+    encrypted channel call this instead of raw ``start_tls()`` so the shell
+    switches to LDAPS in-place via :func:`adopt_ldap_connection`.
+    """
+    logger = log or logging.getLogger('ldap-shell')
+    if getattr(client, 'tls_started', False) or getattr(getattr(client, 'server', None), 'ssl', False):
+        return True
+
+    logger.info('Sending StartTLS command...')
+    try:
+        if client.start_tls():
+            logger.info('StartTLS succeeded')
+            return True
+        logger.info('StartTLS returned False; falling back to LDAPS')
+    except Exception as exc:
+        logger.info(f'StartTLS failed ({exc}); falling back to LDAPS')
+
+    try:
+        new_client = _reconnect_ldaps_from_client(client)
+    except Exception as exc:
+        logger.error(f'LDAPS fallback failed: {exc}')
+        return False
+
+    adopt_ldap_connection(client, new_client)
+    if domain_dumper is not None:
+        domain_dumper.connection = client
+        domain_dumper.server = client.server
+    logger.info('Switched session to LDAPS')
+    return True
 
 
 def _utc_now():

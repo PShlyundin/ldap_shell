@@ -60,13 +60,9 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def __call__(self):
-        # Check secure connection
-        if not self.client.tls_started and not self.client.server.ssl:
-            self.log.info('Starting TLS connection...')
-            if not self.client.start_tls():
-                self.log.error("TLS setup failed")
-                return
-            self.log.info('TLS established successfully')
+        from ldap_shell.session import ensure_tls
+        if not ensure_tls(self.client, self.domain_dumper, self.log):
+            return
 
         try:
             # Check if user exists

@@ -79,14 +79,8 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def _require_tls(self) -> bool:
-        if self.client.tls_started or self.client.server.ssl:
-            return True
-        self.log.info('Sending StartTLS command...')
-        if not self.client.start_tls():
-            self.log.error('StartTLS failed. Retry with -use-ldaps')
-            return False
-        self.log.info('StartTLS succeeded')
-        return True
+        from ldap_shell.session import ensure_tls
+        return ensure_tls(self.client, self.domain_dumper, self.log)
 
     def _current_values(self, target_dn):
         if not self.client.search(target_dn, '(objectClass=*)', attributes=['msDS-KeyCredentialLink']):

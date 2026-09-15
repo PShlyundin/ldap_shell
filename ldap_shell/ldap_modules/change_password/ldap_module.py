@@ -41,17 +41,9 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def __call__(self):
-        # Automatically start StartTLS if no secure connection exists
-        if not self.client.tls_started and not self.client.server.ssl:
-            self.log.info('Detected insecure connection, attempting to start StartTLS...')
-            try:
-                if not self.client.start_tls():
-                    self.log.error("StartTLS failed")
-                    return
-                self.log.info('StartTLS successfully activated!')
-            except Exception as e:
-                self.log.error(f'Error starting StartTLS: {str(e)}')
-                return
+        from ldap_shell.session import ensure_tls
+        if not ensure_tls(self.client, self.domain_dumper, self.log):
+            return
 
         user_dn = LdapUtils.get_dn(self.client, self.domain_dumper, self.args.user)
         if not user_dn:

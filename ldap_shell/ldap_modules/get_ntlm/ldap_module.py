@@ -74,14 +74,9 @@ class LdapShellModule(BaseLdapModule):
         self.log = log or logging.getLogger('ldap-shell.shell')
 
     def __call__(self):
-        # TLS check
-        if not self.client.tls_started and not self.client.server.ssl:
-            self.log.info('Sending StartTLS command...')
-            if not self.client.start_tls():
-                self.log.error("StartTLS failed")
-                return self.log.error('Error: LDAPS required. Try -use-ldaps flag')
-            else:
-                self.log.info('StartTLS succeeded!')
+        from ldap_shell.session import ensure_tls
+        if not ensure_tls(self.client, self.domain_dumper, self.log):
+            return
 
         # Find target user
         target_dn = LdapUtils.get_dn(self.client, self.domain_dumper, self.args.target)

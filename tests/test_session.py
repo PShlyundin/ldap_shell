@@ -32,6 +32,7 @@ def test_adopt_ldap_connection_replaces_state():
             self.user = user
             self.bound = bound
             self.unbound = False
+            self.strategy = SimpleNamespace(connection=self)
 
         def unbind(self):
             self.unbound = True
@@ -42,6 +43,7 @@ def test_adopt_ldap_connection_replaces_state():
     adopt_ldap_connection(dst, src)
     assert dst.user == 'new'
     assert dst.unbound is False
+    assert dst.strategy.connection is dst
 
 
 def test_gc_ports():
@@ -123,6 +125,63 @@ def test_starttls_transport_error_is_fallback():
     assert _looks_like_starttls_fallback(LDAPSocketOpenError('boom'))
     assert _looks_like_starttls_fallback(LdapConnectionError('Failed to start TLS: boom'))
     assert not _looks_like_starttls_fallback(LdapConnectionError('invalidCredentials (code 49)'))
+
+
+def test_ensure_tls_already_encrypted():
+    from ldap_shell.session import ensure_tls
+
+    client = SimpleNamespace(tls_started=True, server=SimpleNamespace(ssl=False))
+    assert ensure_tls(client) is True
+
+    client = SimpleNamespace(tls_started=False, server=SimpleNamespace(ssl=True))
+    assert ensure_tls(client) is True
+
+
+def test_ensure_tls_falls_back_to_ldaps(monkeypatch):
+    from ldap_shell.session import ensure_tls
+
+    class _Client:
+        def __init__(self):
+            self.tls_started = False
+            self.server = SimpleNamespace(ssl=False, host='192.168.1.1', port=389)
+            self.user = r'CORP\user'
+            self.password = 'pass'
+            self.adopted = False
+
+        def start_tls(self):
+            raise Exception('startTLS failed - operationsError')
+
+    client = _Client()
+    new = SimpleNamespace(
+        tls_started=False,
+        server=SimpleNamespace(ssl=True, host='192.168.1.1', port=636),
+        user=r'CORP\user',
+        password='pass',
+        bound=True,
+    )
+
+    monkeypatch.setattr(
+        'ldap_shell.session._reconnect_ldaps_from_client',
+        lambda _c: new,
+    )
+    calls = []
+    monkeypatch.setattr(
+        'ldap_shell.session.adopt_ldap_connection',
+        lambda dst, src: calls.append((dst, src)) or setattr(dst, 'adopted', True),
+    )
+
+    assert ensure_tls(client) is True
+    assert client.adopted is True
+    assert calls and calls[0][1] is new
+
+
+def test_looks_like_ntlm_hash():
+    from ldap_shell.session import _looks_like_ntlm_hash
+    assert _looks_like_ntlm_hash('e80f50488004a85536930c34e16b85dc')
+    assert _looks_like_ntlm_hash(':e80f50488004a85536930c34e16b85dc')
+    assert _looks_like_ntlm_hash('aad3b435b51404eeaad3b435b51404ee:e80f50488004a85536930c34e16b85dc')
+    assert not _looks_like_ntlm_hash('P@ssw0rd')
+    assert not _looks_like_ntlm_hash(None)
 
 
 def _write_test_pfx(path: Path, password: bytes = b'secret') -> Path:

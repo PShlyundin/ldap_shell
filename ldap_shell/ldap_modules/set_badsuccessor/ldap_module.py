@@ -99,13 +99,8 @@ class LdapShellModule(BaseLdapModule):
         return f'CN=Managed Service Accounts,{self.domain_dumper.root}'
 
     def _require_tls(self) -> bool:
-        if self.client.tls_started or self.client.server.ssl:
-            return True
-        self.log.info('Sending StartTLS command...')
-        if not self.client.start_tls():
-            self.log.error('StartTLS failed. Retry with -use-ldaps')
-            return False
-        return True
+        from ldap_shell.session import ensure_tls
+        return ensure_tls(self.client, self.domain_dumper, self.log)
 
     def _list(self, search_base: str):
         if not self.client.search(

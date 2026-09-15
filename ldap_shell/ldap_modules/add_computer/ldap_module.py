@@ -66,13 +66,9 @@ class LdapShellModule(BaseLdapModule):
         if not self.args.computer_name.endswith('$'):
             self.args.computer_name = self.args.computer_name + '$'
 
-        # Check secure connection
-        if not self.client.tls_started and not self.client.server.ssl:
-            self.log.info('Starting TLS connection...')
-            if not self.client.start_tls():
-                self.log.error("TLS setup failed")
-                return
-            self.log.info('TLS established successfully')
+        from ldap_shell.session import ensure_tls
+        if not ensure_tls(self.client, self.domain_dumper, self.log):
+            return
 
         # Generate password if not provided
         password = self.args.password or SecurityUtils.generate_password(15)

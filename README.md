@@ -4,7 +4,7 @@ Interactive and **inline** LDAP client for Active Directory enumeration and ACL 
 
 Version **3.1.0**. Requires **Python 3.10+**.
 
-If a DC rejects plaintext LDAP because signing or channel binding is required, the client tries **StartTLS**, then **LDAPS**. If the installed `ldap3` supports `session_security` / `channel_binding`, those are turned on automatically. Stock `ldap3` 2.9.1 cannot send EPA tokens. `pip install ".[epa]"` swaps in `ldap3-bleeding-edge`, which can. Use `-use-ldaps` when you already know the DC is locked down.
+If a DC rejects plaintext LDAP because signing or channel binding is required, the client tries **StartTLS**, then **LDAPS**. Modules that need an encrypted channel (`get_ntlm`, `change_password`, `add_user`, `add_computer`, `set_keycred`, …) call the same fallback mid-session: if StartTLS fails with `operationsError`, the shell **automatically switches the current bind to LDAPS** — you do not need to restart with `-use-ldaps`. If the installed `ldap3` supports `session_security` / `channel_binding`, those are turned on automatically. Stock `ldap3` 2.9.1 cannot send EPA tokens. `pip install ".[epa]"` swaps in `ldap3-bleeding-edge`, which can. Use `-use-ldaps` when you already know the DC is locked down.
 
 ## Installation
 
